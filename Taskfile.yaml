@@ -1,0 +1,107 @@
+# SPDX-FileCopyrightText: Copyright 2025 Stacklok, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+version: '3'
+
+vars:
+  BINARY_NAME: waggle
+  BUILD_DIR: bin
+  MAIN_PACKAGE: ./cmd/waggle
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+  COMMIT:
+    sh: git rev-parse --short HEAD 2>/dev/null || echo "unknown"
+  BUILD_DATE:
+    sh: date -u +"%Y-%m-%dT%H:%M:%SZ"
+  LDFLAGS: >-
+    -X main.version={{.VERSION}}
+    -X main.commit={{.COMMIT}}
+    -X main.buildDate={{.BUILD_DATE}}
+
+# Quick reference:
+#   task build   → Build waggle binary
+#   task test    → Run tests with race detector
+#   task lint    → Run linter
+#   task verify  → fmt + lint + test
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  build:
+    desc: Build the waggle binary
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - CGO_ENABLED=0 go build -ldflags "{{.LDFLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
+    sources:
+      - ./**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
+
+  test:
+    desc: Run unit tests with race detector
+    cmds:
+      - go test -v -race ./...
+
+  test-coverage:
+    desc: Run tests with coverage
+    cmds:
+      - go test -v -race -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Coverage report generated at coverage.html"
+
+  lint:
+    desc: Run linter
+    cmds:
+      - golangci-lint run ./...
+
+  lint-fix:
+    desc: Run linter and fix issues
+    cmds:
+      - golangci-lint run --fix ./...
+
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+      - goimports -w .
+
+  tidy:
+    desc: Tidy go modules
+    cmds:
+      - go mod tidy
+
+  gen:
+    desc: Generate mocks
+    cmds:
+      - go generate ./...
+
+  verify:
+    desc: Verify code (fmt, lint, test)
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
+
+  version:
+    desc: Print version information
+    cmds:
+      - 'echo "Version: {{.VERSION}}"'
+      - 'echo "Commit: {{.COMMIT}}"'
+      - 'echo "Build Date: {{.BUILD_DATE}}"'
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BUILD_DIR}}/
+      - rm -f coverage.out coverage.html
+
+  run:
+    desc: Build and run the server
+    deps: [build]
+    cmds:
+      - ./{{.BUILD_DIR}}/{{.BINARY_NAME}}

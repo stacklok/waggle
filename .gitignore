@@ -1,0 +1,17 @@
+# Build artifacts
+bin/
+/waggle
+coverage.out
+coverage.html
+.task/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
