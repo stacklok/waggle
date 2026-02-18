@@ -6,8 +6,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/stacklok/waggle/pkg/cleanup"
 	"github.com/stacklok/waggle/pkg/config"
+	"github.com/stacklok/waggle/pkg/health"
 	"github.com/stacklok/waggle/pkg/infra/ssh"
 	"github.com/stacklok/waggle/pkg/infra/store"
 	"github.com/stacklok/waggle/pkg/infra/vm"
@@ -72,9 +75,24 @@ func run() error {
 	// Create and configure MCP server.
 	mcpServer := wagmcp.NewServer(version, envSvc, execSvc, fsSvc)
 
-	httpServer := server.NewStreamableHTTPServer(mcpServer,
-		server.WithEndpointPath("/mcp"),
+	// Health endpoints with readiness checkers.
+	healthHandler := health.NewHandler(
+		health.NewRepositoryChecker(repo),
 	)
+
+	// Use StreamableHTTPServer as http.Handler (not .Start()).
+	mcpHTTPHandler := server.NewStreamableHTTPServer(mcpServer)
+
+	mux := http.NewServeMux()
+	mux.Handle("/mcp", mcpHTTPHandler)
+	mux.HandleFunc("/healthz", healthHandler.HandleHealthz)
+	mux.HandleFunc("/readyz", healthHandler.HandleReadyz)
+
+	httpSrv := &http.Server{
+		Addr:              cfg.ListenAddr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 
 	// Start background reaper for expired environments.
 	reaper := cleanup.NewReaper(envSvc, repo, cfg.ReaperInterval)
@@ -89,7 +107,7 @@ func run() error {
 	errCh := make(chan error, 1)
 	go func() {
 		slog.Info("MCP server listening", "addr", cfg.ListenAddr, "endpoint", "/mcp")
-		errCh <- httpServer.Start(cfg.ListenAddr)
+		errCh <- httpSrv.ListenAndServe()
 	}()
 
 	// Wait for shutdown signal or server error.
@@ -97,13 +115,20 @@ func run() error {
 	case <-ctx.Done():
 		slog.Info("shutdown signal received")
 	case err := <-errCh:
-		return fmt.Errorf("server error: %w", err)
+		if !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("server error: %w", err)
+		}
 	}
 
-	// Clean up all environments on shutdown.
-	slog.Info("cleaning up environments")
+	// Drain HTTP connections first, then clean up environments.
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("HTTP server shutdown error", "error", err)
+	}
+
+	slog.Info("cleaning up environments")
 	envs, _ := envSvc.List(shutdownCtx)
 	for _, env := range envs {
 		if destroyErr := envSvc.Destroy(shutdownCtx, env.ID); destroyErr != nil {
