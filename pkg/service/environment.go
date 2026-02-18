@@ -16,6 +16,11 @@ import (
 	"github.com/stacklok/waggle/pkg/infra/vm"
 )
 
+const (
+	// MaxTimeoutMinutes is the maximum allowed inactivity timeout for an environment.
+	MaxTimeoutMinutes = 60
+)
+
 // EnvironmentService orchestrates environment lifecycle operations.
 type EnvironmentService struct {
 	repo      environment.Repository
@@ -71,6 +76,9 @@ func (s *EnvironmentService) Create(
 	// Apply timeout default.
 	if timeoutMin <= 0 {
 		timeoutMin = s.config.DefaultTimeoutMin
+	}
+	if timeoutMin > MaxTimeoutMinutes {
+		return nil, fmt.Errorf("timeout_minutes %d exceeds maximum allowed value of %d", timeoutMin, MaxTimeoutMinutes)
 	}
 	timeout := time.Duration(timeoutMin) * time.Minute
 

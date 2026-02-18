@@ -193,3 +193,16 @@ func TestImageRef(t *testing.T) {
 		t.Errorf("ImageRef(node) = %q, want empty", got)
 	}
 }
+
+func TestEnvUint32OverflowGuard(t *testing.T) {
+	// Not parallel: modifies environment variables.
+	// A value that overflows uint32 (math.MaxUint32 + 1 = 4294967296).
+	t.Setenv("WAGGLE_DEFAULT_CPUS", "4294967296")
+
+	cfg := LoadFromEnv()
+
+	// Overflow should be treated as invalid and fall back to default.
+	if cfg.DefaultCPUs != defaultCPUs {
+		t.Errorf("DefaultCPUs = %d after overflow input, want default %d", cfg.DefaultCPUs, defaultCPUs)
+	}
+}

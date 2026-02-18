@@ -134,6 +134,39 @@ func TestEnvironmentServiceCreateInvalidRuntime(t *testing.T) {
 	}
 }
 
+func TestEnvironmentServiceCreateTimeoutTooLarge(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	portAlloc := vm.NewPortAllocator(20000, 20100)
+	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
+
+	svc := NewEnvironmentService(store.NewMemoryStore(), newFakeProvider(), portAlloc, testConfig())
+
+	_, err := svc.Create(ctx, environment.RuntimePython, "test", MaxTimeoutMinutes+1)
+	if err == nil {
+		t.Fatal("expected error for timeout exceeding max, got nil")
+	}
+}
+
+func TestEnvironmentServiceCreateTimeoutAtMax(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	portAlloc := vm.NewPortAllocator(20000, 20100)
+	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
+
+	svc := NewEnvironmentService(store.NewMemoryStore(), newFakeProvider(), portAlloc, testConfig())
+
+	env, err := svc.Create(ctx, environment.RuntimePython, "test", MaxTimeoutMinutes)
+	if err != nil {
+		t.Fatalf("expected no error at max timeout, got: %v", err)
+	}
+	if env.Timeout != time.Duration(MaxTimeoutMinutes)*time.Minute {
+		t.Errorf("Timeout = %v, want %v", env.Timeout, time.Duration(MaxTimeoutMinutes)*time.Minute)
+	}
+}
+
 func TestEnvironmentServiceCreateMaxReached(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

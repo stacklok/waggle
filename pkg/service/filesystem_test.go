@@ -44,7 +44,7 @@ func (*fakeFS) ListFiles(_ context.Context, _ filesystem.ConnInfo, _ string) ([]
 	}, nil
 }
 
-func setupFSTest(t *testing.T) (*FilesystemService, string) {
+func setupFSTest(t *testing.T) (*FilesystemService, *fakeFS, string) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -64,14 +64,14 @@ func setupFSTest(t *testing.T) (*FilesystemService, string) {
 	fs := newFakeFS()
 	fsSvc := NewFilesystemService(repo, fs, provider, envSvc)
 
-	return fsSvc, env.ID
+	return fsSvc, fs, env.ID
 }
 
 func TestFilesystemServiceWriteAndRead(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	svc, envID := setupFSTest(t)
+	svc, _, envID := setupFSTest(t)
 
 	err := svc.WriteFile(ctx, envID, "/home/user/test.py", "print('hi')", 0o644)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestFilesystemServiceListFiles(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	svc, envID := setupFSTest(t)
+	svc, _, envID := setupFSTest(t)
 
 	files, err := svc.ListFiles(ctx, envID, "/home/user")
 	if err != nil {
@@ -140,5 +140,33 @@ func TestFilesystemServiceNotFound(t *testing.T) {
 	_, err := svc.ReadFile(ctx, "nonexistent", "/test")
 	if !errors.Is(err, environment.ErrNotFound) {
 		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestFilesystemServiceWriteFileSizeLimit(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	svc, _, envID := setupFSTest(t)
+
+	oversized := string(make([]byte, MaxFileSizeBytes+1))
+	err := svc.WriteFile(ctx, envID, "/home/user/big.bin", oversized, 0o644)
+	if err == nil {
+		t.Fatal("expected error for oversized write, got nil")
+	}
+}
+
+func TestFilesystemServiceReadFileSizeLimit(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	svc, fs, envID := setupFSTest(t)
+
+	// Directly inject oversized content into the fake FS, bypassing the service limit.
+	fs.files["/home/user/big.bin"] = make([]byte, MaxFileSizeBytes+1)
+
+	_, err := svc.ReadFile(ctx, envID, "/home/user/big.bin")
+	if err == nil {
+		t.Fatal("expected error for oversized read, got nil")
 	}
 }

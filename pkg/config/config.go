@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -226,7 +227,7 @@ func envInt(name string) int {
 
 func envUint32(name string) uint32 {
 	n := envInt(name)
-	if n < 0 {
+	if n < 0 || n > math.MaxUint32 {
 		return 0
 	}
 	return uint32(n) //nolint:gosec // n is validated to be non-negative above
