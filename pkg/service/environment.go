@@ -114,6 +114,7 @@ func (s *EnvironmentService) Create(
 		ImageRef:   imageRef,
 		DataDir:    s.config.DataDir,
 		RunnerPath: s.config.RunnerPath,
+		InitPath:   s.config.InitPath,
 		LibDir:     s.config.LibDir,
 	})
 	if vmErr != nil {

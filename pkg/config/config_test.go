@@ -91,6 +91,11 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name:    "init path does not exist",
+			modify:  func(c *Config) { c.InitPath = "/nonexistent/waggle-init" },
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -120,6 +125,7 @@ func TestLoadFromEnv(t *testing.T) {
 	t.Setenv("WAGGLE_SSH_PORT_MAX", "21000")
 	t.Setenv("WAGGLE_DATA_DIR", "/tmp/waggle-test")
 	t.Setenv("WAGGLE_RUNNER_PATH", "/usr/bin/propolis-runner")
+	t.Setenv("WAGGLE_INIT_PATH", "/usr/bin/waggle-init")
 	t.Setenv("WAGGLE_LIB_DIR", "/usr/lib")
 	t.Setenv("WAGGLE_REAPER_INTERVAL", "2m")
 	t.Setenv("WAGGLE_IMAGE_PYTHON", "ghcr.io/stacklok/waggle-python:latest")
@@ -152,6 +158,9 @@ func TestLoadFromEnv(t *testing.T) {
 	}
 	if cfg.RunnerPath != "/usr/bin/propolis-runner" {
 		t.Errorf("RunnerPath = %q, want %q", cfg.RunnerPath, "/usr/bin/propolis-runner")
+	}
+	if cfg.InitPath != "/usr/bin/waggle-init" {
+		t.Errorf("InitPath = %q, want %q", cfg.InitPath, "/usr/bin/waggle-init")
 	}
 	if cfg.LibDir != "/usr/lib" {
 		t.Errorf("LibDir = %q, want %q", cfg.LibDir, "/usr/lib")

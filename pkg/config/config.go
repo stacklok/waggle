@@ -72,6 +72,10 @@ type Config struct {
 	// RunnerPath is an optional explicit path to the propolis-runner binary.
 	RunnerPath string
 
+	// InitPath is an optional explicit path to the waggle-init binary
+	// that runs as PID 1 inside guest VMs.
+	InitPath string
+
 	// LibDir is an optional path to the libkrun library directory.
 	LibDir string
 
@@ -130,6 +134,9 @@ func loadEnvStrings(cfg *Config) {
 	}
 	if v := os.Getenv(EnvPrefix + "RUNNER_PATH"); v != "" {
 		cfg.RunnerPath = v
+	}
+	if v := os.Getenv(EnvPrefix + "INIT_PATH"); v != "" {
+		cfg.InitPath = v
 	}
 	if v := os.Getenv(EnvPrefix + "LIB_DIR"); v != "" {
 		cfg.LibDir = v
@@ -192,6 +199,11 @@ func (c *Config) Validate() error {
 	}
 	if c.DefaultExecTimeout > c.MaxExecTimeout {
 		return fmt.Errorf("default exec timeout (%v) must not exceed max (%v)", c.DefaultExecTimeout, c.MaxExecTimeout)
+	}
+	if c.InitPath != "" {
+		if _, err := os.Stat(c.InitPath); err != nil {
+			return fmt.Errorf("init binary not found at %s: %w", c.InitPath, err)
+		}
 	}
 	return nil
 }

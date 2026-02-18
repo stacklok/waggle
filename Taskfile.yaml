@@ -42,6 +42,22 @@ tasks:
     generates:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
+  build-init:
+    desc: Build the waggle-init binary (guest VM init)
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - CGO_ENABLED=0 GOOS=linux go build -ldflags "{{.LDFLAGS}}" -o {{.BUILD_DIR}}/waggle-init ./cmd/waggle-init
+    sources:
+      - cmd/waggle-init/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - '{{.BUILD_DIR}}/waggle-init'
+
+  build-all:
+    desc: Build all binaries
+    deps: [build, build-init]
+
   test:
     desc: Run unit tests with race detector
     cmds:

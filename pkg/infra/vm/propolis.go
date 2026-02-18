@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/stacklok/propolis"
-	"github.com/stacklok/propolis/image"
+	"github.com/stacklok/propolis/hooks"
 	propolisssh "github.com/stacklok/propolis/ssh"
 
 	"github.com/stacklok/waggle/pkg/domain/environment"
@@ -77,10 +77,21 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 		propolis.WithDataDir(envDataDir),
 
 		// Inject SSH authorized_keys into the rootfs before boot.
-		propolis.WithRootFSHook(sshKeyInjector(pubKeyContent)),
+		propolis.WithRootFSHook(hooks.InjectAuthorizedKeys(pubKeyContent, hooks.WithKeyUser("/root", 0, 0))),
 
 		// Wait for SSH to become ready after boot.
 		propolis.WithPostBoot(sshReadyWaiter(env.SSHPort, privateKeyPath)),
+	}
+
+	if opts.InitPath != "" {
+		hook, err := initInjector(opts.InitPath)
+		if err != nil {
+			return nil, err
+		}
+		propolisOpts = append(propolisOpts,
+			propolis.WithRootFSHook(hook),
+			propolis.WithInitOverride("/waggle-init"),
+		)
 	}
 
 	if opts.RunnerPath != "" {
@@ -159,22 +170,15 @@ func (p *PropolisProvider) SSHKeyPath(envID string) string {
 	return entry.sshKeyPath
 }
 
-// sshKeyInjector returns a RootFSHook that writes the SSH public key
-// into /root/.ssh/authorized_keys within the rootfs.
-func sshKeyInjector(pubKeyContent string) propolis.RootFSHook {
-	return func(rootfsPath string, _ *image.OCIConfig) error {
-		sshDir := filepath.Join(rootfsPath, "root", ".ssh")
-		if err := os.MkdirAll(sshDir, 0o700); err != nil {
-			return fmt.Errorf("create .ssh dir: %w", err)
-		}
-
-		authKeysPath := filepath.Join(sshDir, "authorized_keys")
-		if err := os.WriteFile(authKeysPath, []byte(pubKeyContent), 0o600); err != nil {
-			return fmt.Errorf("write authorized_keys: %w", err)
-		}
-
-		return nil
+// initInjector reads the waggle-init binary from disk and returns a
+// RootFSHook that injects it into the guest rootfs at /waggle-init.
+// The caller must ensure initPath is non-empty.
+func initInjector(initPath string) (propolis.RootFSHook, error) {
+	data, err := os.ReadFile(initPath) //nolint:gosec // initPath comes from server config, not user input
+	if err != nil {
+		return nil, fmt.Errorf("read init binary %s: %w", initPath, err)
 	}
+	return hooks.InjectBinary("/waggle-init", data), nil
 }
 
 // sshReadyWaiter returns a PostBootHook that waits for SSH to become

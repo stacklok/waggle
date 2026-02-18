@@ -19,6 +19,11 @@ type CreateVMOpts struct {
 	// RunnerPath is an optional explicit path to propolis-runner.
 	RunnerPath string
 
+	// InitPath is an optional path to the waggle-init binary.
+	// When set, the binary is injected into the rootfs and used as
+	// the VM init process instead of the OCI image CMD/ENTRYPOINT.
+	InitPath string
+
 	// LibDir is an optional path to the libkrun library directory.
 	LibDir string
 }

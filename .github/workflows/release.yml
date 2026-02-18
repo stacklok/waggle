@@ -46,6 +46,9 @@ jobs:
       - name: Test
         run: task test
 
+      - name: Build init
+        run: task build-init
+
       - name: Setup Ko
         uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
 
