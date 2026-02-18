@@ -15,17 +15,17 @@ import (
 	"github.com/stacklok/waggle/pkg/service"
 )
 
-// fakeProvider implements vm.VMProvider for testing.
+// fakeProvider implements vm.Provider for testing.
 type fakeProvider struct {
-	vms map[string]*vm.VMHandle
+	vms map[string]*vm.Handle
 }
 
 func newFakeProvider() *fakeProvider {
-	return &fakeProvider{vms: make(map[string]*vm.VMHandle)}
+	return &fakeProvider{vms: make(map[string]*vm.Handle)}
 }
 
-func (f *fakeProvider) CreateVM(_ context.Context, env *environment.Environment, _ vm.CreateVMOpts) (*vm.VMHandle, error) {
-	handle := &vm.VMHandle{EnvID: env.ID, SSHKeyPath: "/tmp/fake_key"}
+func (f *fakeProvider) CreateVM(_ context.Context, env *environment.Environment, _ vm.CreateVMOpts) (*vm.Handle, error) {
+	handle := &vm.Handle{EnvID: env.ID, SSHKeyPath: "/tmp/fake_key"}
 	f.vms[env.ID] = handle
 	return handle, nil
 }

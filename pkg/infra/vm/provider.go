@@ -23,17 +23,17 @@ type CreateVMOpts struct {
 	LibDir string
 }
 
-// VMHandle holds the runtime state for a running VM, including
+// Handle holds the runtime state for a running VM, including
 // the SSH key path needed to connect to it.
-type VMHandle struct {
+type Handle struct {
 	EnvID      string
 	SSHKeyPath string
 }
 
-// VMProvider abstracts VM lifecycle management.
-type VMProvider interface {
+// Provider abstracts VM lifecycle management.
+type Provider interface {
 	// CreateVM provisions a new microVM for the given environment.
-	CreateVM(ctx context.Context, env *environment.Environment, opts CreateVMOpts) (*VMHandle, error)
+	CreateVM(ctx context.Context, env *environment.Environment, opts CreateVMOpts) (*Handle, error)
 
 	// DestroyVM tears down the VM associated with the given environment ID.
 	DestroyVM(ctx context.Context, envID string) error

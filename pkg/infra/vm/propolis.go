@@ -24,7 +24,7 @@ type vmEntry struct {
 	sshKeyPath string
 }
 
-// PropolisProvider implements VMProvider using propolis microVMs.
+// PropolisProvider implements Provider using propolis microVMs.
 type PropolisProvider struct {
 	mu sync.RWMutex
 	// vms maps environment ID to the running VM entry.
@@ -39,7 +39,7 @@ func NewPropolisProvider() *PropolisProvider {
 }
 
 // CreateVM provisions a new microVM for the given environment.
-func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Environment, opts CreateVMOpts) (*VMHandle, error) {
+func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Environment, opts CreateVMOpts) (*Handle, error) {
 	// Create per-environment data directory.
 	envDataDir := filepath.Join(opts.DataDir, "envs", env.ID)
 	if err := os.MkdirAll(envDataDir, 0o700); err != nil {
@@ -109,7 +109,7 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 		"pid", vm.PID(),
 	)
 
-	return &VMHandle{
+	return &Handle{
 		EnvID:      env.ID,
 		SSHKeyPath: privateKeyPath,
 	}, nil

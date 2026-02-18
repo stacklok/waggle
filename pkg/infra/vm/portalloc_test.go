@@ -10,8 +10,8 @@ import (
 	"testing"
 )
 
-func newTestAllocator(base, max uint16) *PortAllocator {
-	a := NewPortAllocator(base, max)
+func newTestAllocator(base, maxPort uint16) *PortAllocator { //nolint:unparam // base varies conceptually even if tests use 10000
+	a := NewPortAllocator(base, maxPort)
 	// Replace listen check with a no-op for unit tests.
 	a.listenCheck = func(_ uint16) error { return nil }
 	return a

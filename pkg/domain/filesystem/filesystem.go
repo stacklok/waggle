@@ -9,6 +9,19 @@ import (
 	"time"
 )
 
+// ConnInfo holds pre-validated SSH connection details for an environment.
+// The service layer resolves these from the environment before calling adapters.
+type ConnInfo struct {
+	// Host is the SSH host address (typically "127.0.0.1" for microVMs).
+	Host string
+
+	// Port is the SSH port for the environment's microVM.
+	Port uint16
+
+	// KeyPath is the path to the SSH private key for this environment.
+	KeyPath string
+}
+
 // FileInfo describes a file or directory within an environment.
 type FileInfo struct {
 	// Name is the file or directory name (not the full path).
@@ -31,12 +44,15 @@ type FileInfo struct {
 type FileSystem interface {
 	// WriteFile writes content to a file at the given path inside the environment.
 	// If the file does not exist, it is created. If it exists, it is overwritten.
-	WriteFile(ctx context.Context, envID string, path string, content []byte, mode os.FileMode) error
+	// conn contains pre-validated SSH connection details resolved by the service layer.
+	WriteFile(ctx context.Context, conn ConnInfo, path string, content []byte, mode os.FileMode) error
 
 	// ReadFile reads the content of a file at the given path inside the environment.
-	ReadFile(ctx context.Context, envID string, path string) ([]byte, error)
+	// conn contains pre-validated SSH connection details resolved by the service layer.
+	ReadFile(ctx context.Context, conn ConnInfo, path string) ([]byte, error)
 
 	// ListFiles returns the contents of a directory at the given path
 	// inside the environment.
-	ListFiles(ctx context.Context, envID string, path string) ([]FileInfo, error)
+	// conn contains pre-validated SSH connection details resolved by the service layer.
+	ListFiles(ctx context.Context, conn ConnInfo, path string) ([]FileInfo, error)
 }

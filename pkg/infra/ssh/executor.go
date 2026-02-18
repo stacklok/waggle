@@ -10,55 +10,67 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	propolisssh "github.com/stacklok/propolis/ssh"
 
-	"github.com/stacklok/waggle/pkg/domain/environment"
 	"github.com/stacklok/waggle/pkg/domain/execution"
-	"github.com/stacklok/waggle/pkg/infra/vm"
 )
 
 // Executor implements execution.Executor using SSH connections to microVMs.
-type Executor struct {
-	repo     environment.Repository
-	provider vm.VMProvider
-}
+type Executor struct{}
 
 // NewExecutor creates a new SSH-based Executor.
-func NewExecutor(repo environment.Repository, provider vm.VMProvider) *Executor {
-	return &Executor{
-		repo:     repo,
-		provider: provider,
-	}
+func NewExecutor() *Executor {
+	return &Executor{}
 }
 
-// Execute runs a command in the specified environment via SSH.
-// It captures stdout and stderr separately and returns the result.
-func (e *Executor) Execute(
-	ctx context.Context, envID string, command string, timeout time.Duration,
+// ExecuteCode runs code in the specified environment via SSH.
+// It writes the code to a temp file, executes it, captures output, and cleans up.
+func (e *Executor) ExecuteCode(
+	ctx context.Context, _ string, conn execution.ConnInfo, req *execution.CodeExecution,
 ) (*execution.ExecResult, error) {
-	env, err := e.repo.FindByID(ctx, envID)
-	if err != nil {
-		return nil, fmt.Errorf("find environment: %w", err)
-	}
-	if !env.IsRunning() {
-		return nil, environment.ErrNotRunning
-	}
+	client := propolisssh.NewClient(conn.Host, conn.Port, "root", conn.KeyPath)
 
-	keyPath := e.provider.SSHKeyPath(envID)
-	if keyPath == "" {
-		return nil, fmt.Errorf("SSH key not found for environment %q", envID)
+	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
+
+	// Build execution command: write code to temp file, execute, clean up.
+	tempFile := fmt.Sprintf("/tmp/waggle_%s%s", uuid.New().String()[:12], req.FileExtension)
+	delimiter := fmt.Sprintf("WAGGLE_EOF_%s", uuid.New().String()[:8])
+	command := fmt.Sprintf(
+		"cat > %s << '%s'\n%s\n%s\n%s %s; __exit=$?; rm -f %s; exit $__exit",
+		tempFile, delimiter, req.Code, delimiter, req.ExecCommand, tempFile, tempFile,
+	)
+
+	return e.run(ctx, client, command, timeout)
+}
+
+// InstallPackages installs language packages in the specified environment via SSH.
+func (e *Executor) InstallPackages(
+	ctx context.Context, _ string, conn execution.ConnInfo, req *execution.PackageInstallation,
+) (*execution.ExecResult, error) {
+	client := propolisssh.NewClient(conn.Host, conn.Port, "root", conn.KeyPath)
+
+	command := fmt.Sprintf("%s %s", req.InstallCommand, strings.Join(req.Packages, " "))
+
+	return e.run(ctx, client, command, 0)
+}
+
+// run executes a command via SSH and returns the result.
+// If timeout is 0, no timeout is applied beyond the context deadline.
+func (*Executor) run(
+	ctx context.Context, client *propolisssh.Client, command string, timeout time.Duration,
+) (*execution.ExecResult, error) {
+	execCtx := ctx
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		execCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
 	}
-
-	client := propolisssh.NewClient("127.0.0.1", env.SSHPort, "root", keyPath)
-
-	// Apply timeout via context.
-	execCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 
 	var stdout, stderr bytes.Buffer
 	start := time.Now()
 
-	err = client.RunStream(execCtx, command, &stdout, &stderr)
+	err := client.RunStream(execCtx, command, &stdout, &stderr)
 
 	duration := time.Since(start)
 	exitCode := 0

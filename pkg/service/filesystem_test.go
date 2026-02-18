@@ -25,12 +25,12 @@ func newFakeFS() *fakeFS {
 	return &fakeFS{files: make(map[string][]byte)}
 }
 
-func (f *fakeFS) WriteFile(_ context.Context, _ string, path string, content []byte, _ os.FileMode) error {
+func (f *fakeFS) WriteFile(_ context.Context, _ filesystem.ConnInfo, path string, content []byte, _ os.FileMode) error {
 	f.files[path] = content
 	return nil
 }
 
-func (f *fakeFS) ReadFile(_ context.Context, _ string, path string) ([]byte, error) {
+func (f *fakeFS) ReadFile(_ context.Context, _ filesystem.ConnInfo, path string) ([]byte, error) {
 	data, ok := f.files[path]
 	if !ok {
 		return nil, errors.New("file not found")
@@ -38,13 +38,13 @@ func (f *fakeFS) ReadFile(_ context.Context, _ string, path string) ([]byte, err
 	return data, nil
 }
 
-func (f *fakeFS) ListFiles(_ context.Context, _ string, _ string) ([]filesystem.FileInfo, error) {
+func (*fakeFS) ListFiles(_ context.Context, _ filesystem.ConnInfo, _ string) ([]filesystem.FileInfo, error) {
 	return []filesystem.FileInfo{
 		{Name: "test.py", Size: 100, IsDir: false},
 	}, nil
 }
 
-func setupFSTest(t *testing.T) (*FilesystemService, *fakeFS, string) {
+func setupFSTest(t *testing.T) (*FilesystemService, string) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -62,16 +62,16 @@ func setupFSTest(t *testing.T) (*FilesystemService, *fakeFS, string) {
 	}
 
 	fs := newFakeFS()
-	fsSvc := NewFilesystemService(repo, fs, envSvc)
+	fsSvc := NewFilesystemService(repo, fs, provider, envSvc)
 
-	return fsSvc, fs, env.ID
+	return fsSvc, env.ID
 }
 
 func TestFilesystemServiceWriteAndRead(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	svc, _, envID := setupFSTest(t)
+	svc, envID := setupFSTest(t)
 
 	err := svc.WriteFile(ctx, envID, "/home/user/test.py", "print('hi')", 0o644)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestFilesystemServiceListFiles(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	svc, _, envID := setupFSTest(t)
+	svc, envID := setupFSTest(t)
 
 	files, err := svc.ListFiles(ctx, envID, "/home/user")
 	if err != nil {
@@ -113,7 +113,7 @@ func TestFilesystemServiceNotRunning(t *testing.T) {
 	env := environment.New("stopped-id", "stopped", environment.RuntimePython, 10000, time.Hour)
 	_ = repo.Save(ctx, env)
 
-	svc := NewFilesystemService(repo, newFakeFS(), nil)
+	svc := NewFilesystemService(repo, newFakeFS(), newFakeProvider(), nil)
 
 	err := svc.WriteFile(ctx, "stopped-id", "/test", "data", 0o644)
 	if !errors.Is(err, environment.ErrNotRunning) {
@@ -135,7 +135,7 @@ func TestFilesystemServiceNotFound(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	svc := NewFilesystemService(store.NewMemoryStore(), newFakeFS(), nil)
+	svc := NewFilesystemService(store.NewMemoryStore(), newFakeFS(), newFakeProvider(), nil)
 
 	_, err := svc.ReadFile(ctx, "nonexistent", "/test")
 	if !errors.Is(err, environment.ErrNotFound) {

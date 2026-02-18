@@ -19,7 +19,7 @@ import (
 // EnvironmentService orchestrates environment lifecycle operations.
 type EnvironmentService struct {
 	repo      environment.Repository
-	provider  vm.VMProvider
+	provider  vm.Provider
 	portAlloc *vm.PortAllocator
 	config    *config.Config
 }
@@ -27,7 +27,7 @@ type EnvironmentService struct {
 // NewEnvironmentService creates a new EnvironmentService.
 func NewEnvironmentService(
 	repo environment.Repository,
-	provider vm.VMProvider,
+	provider vm.Provider,
 	portAlloc *vm.PortAllocator,
 	cfg *config.Config,
 ) *EnvironmentService {

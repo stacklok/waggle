@@ -17,18 +17,18 @@ const (
 	// EnvPrefix is the prefix for all waggle environment variables.
 	EnvPrefix = "WAGGLE_"
 
-	defaultListenAddr       = "127.0.0.1:8080"
-	defaultCPUs             = 1
-	defaultMemoryMB         = 512
-	defaultMaxEnvironments  = 10
-	defaultTimeoutMin       = 30
-	defaultBootTimeout      = 2 * time.Minute
-	defaultExecTimeout      = 30 * time.Second
-	defaultMaxExecTimeout   = 5 * time.Minute
-	defaultSSHPortBase      = 10000
-	defaultSSHPortMax       = 11000
-	defaultReaperInterval   = time.Minute
-	defaultDataDirName      = "waggle"
+	defaultListenAddr      = "127.0.0.1:8080"
+	defaultCPUs            = 1
+	defaultMemoryMB        = 512
+	defaultMaxEnvironments = 10
+	defaultTimeoutMin      = 30
+	defaultBootTimeout     = 2 * time.Minute
+	defaultExecTimeout     = 30 * time.Second
+	defaultMaxExecTimeout  = 5 * time.Minute
+	defaultSSHPortBase     = 10000
+	defaultSSHPortMax      = 11000
+	defaultReaperInterval  = time.Minute
+	defaultDataDirName     = "waggle"
 )
 
 // Config holds the waggle server configuration.
@@ -105,10 +105,38 @@ func Default() *Config {
 // falling back to defaults for any unset variables.
 func LoadFromEnv() *Config {
 	cfg := Default()
+	loadEnvStrings(cfg)
+	loadEnvNumerics(cfg)
 
+	// Load runtime images from WAGGLE_IMAGE_<RUNTIME> env vars.
+	for _, rt := range environment.ValidRuntimes {
+		key := EnvPrefix + "IMAGE_" + envKey(string(rt))
+		if v := os.Getenv(key); v != "" {
+			cfg.Images[string(rt)] = v
+		}
+	}
+
+	return cfg
+}
+
+// loadEnvStrings applies string-typed environment variables to cfg.
+func loadEnvStrings(cfg *Config) {
 	if v := os.Getenv(EnvPrefix + "LISTEN_ADDR"); v != "" {
 		cfg.ListenAddr = v
 	}
+	if v := os.Getenv(EnvPrefix + "DATA_DIR"); v != "" {
+		cfg.DataDir = v
+	}
+	if v := os.Getenv(EnvPrefix + "RUNNER_PATH"); v != "" {
+		cfg.RunnerPath = v
+	}
+	if v := os.Getenv(EnvPrefix + "LIB_DIR"); v != "" {
+		cfg.LibDir = v
+	}
+}
+
+// loadEnvNumerics applies numeric-typed environment variables to cfg.
+func loadEnvNumerics(cfg *Config) {
 	if v := envUint32("DEFAULT_CPUS"); v > 0 {
 		cfg.DefaultCPUs = v
 	}
@@ -136,28 +164,9 @@ func LoadFromEnv() *Config {
 	if v := envUint16("SSH_PORT_MAX"); v > 0 {
 		cfg.SSHPortMax = v
 	}
-	if v := os.Getenv(EnvPrefix + "DATA_DIR"); v != "" {
-		cfg.DataDir = v
-	}
-	if v := os.Getenv(EnvPrefix + "RUNNER_PATH"); v != "" {
-		cfg.RunnerPath = v
-	}
-	if v := os.Getenv(EnvPrefix + "LIB_DIR"); v != "" {
-		cfg.LibDir = v
-	}
 	if v := envDuration("REAPER_INTERVAL"); v > 0 {
 		cfg.ReaperInterval = v
 	}
-
-	// Load runtime images from WAGGLE_IMAGE_<RUNTIME> env vars.
-	for _, rt := range environment.ValidRuntimes {
-		key := EnvPrefix + "IMAGE_" + envKey(string(rt))
-		if v := os.Getenv(key); v != "" {
-			cfg.Images[string(rt)] = v
-		}
-	}
-
-	return cfg
 }
 
 // Validate checks the configuration for logical consistency.
@@ -220,7 +229,7 @@ func envUint32(name string) uint32 {
 	if n < 0 {
 		return 0
 	}
-	return uint32(n)
+	return uint32(n) //nolint:gosec // n is validated to be non-negative above
 }
 
 func envUint16(name string) uint16 {

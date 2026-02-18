@@ -2,5 +2,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package vm provides VM lifecycle management infrastructure,
-// including the VMProvider interface and port allocation.
+// including the Provider interface and port allocation.
 package vm

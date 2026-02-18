@@ -60,13 +60,13 @@ func run() error {
 	portAlloc := vm.NewPortAllocator(cfg.SSHPortBase, cfg.SSHPortMax)
 
 	// Create domain adapters.
-	sshExecutor := ssh.NewExecutor(repo, provider)
-	sshFS := ssh.NewFileSystem(repo, provider)
+	sshExecutor := ssh.NewExecutor()
+	sshFS := ssh.NewFileSystem()
 
 	// Create application services.
 	envSvc := service.NewEnvironmentService(repo, provider, portAlloc, cfg)
-	execSvc := service.NewExecutionService(repo, sshExecutor, envSvc, cfg)
-	fsSvc := service.NewFilesystemService(repo, sshFS, envSvc)
+	execSvc := service.NewExecutionService(repo, sshExecutor, provider, envSvc, cfg)
+	fsSvc := service.NewFilesystemService(repo, sshFS, provider, envSvc)
 
 	// Create and configure MCP server.
 	mcpServer := wagmcp.NewServer(version, envSvc, execSvc, fsSvc)

@@ -39,6 +39,8 @@ func (r Runtime) FileExtension() string {
 		return ".py"
 	case RuntimeNode:
 		return ".js"
+	case RuntimeShell:
+		return ".sh"
 	default:
 		return ".sh"
 	}
@@ -52,6 +54,8 @@ func (r Runtime) ExecCommand() string {
 		return "python3"
 	case RuntimeNode:
 		return "node"
+	case RuntimeShell:
+		return "sh"
 	default:
 		return "sh"
 	}
@@ -65,6 +69,8 @@ func (r Runtime) PackageInstallCommand() string {
 		return "pip install"
 	case RuntimeNode:
 		return "npm install -g"
+	case RuntimeShell:
+		return "apk add --no-cache"
 	default:
 		return "apk add --no-cache"
 	}

@@ -26,11 +26,11 @@ type PortAllocator struct {
 	listenCheck func(port uint16) error
 }
 
-// NewPortAllocator creates a PortAllocator for the given port range [base, max).
-func NewPortAllocator(base, max uint16) *PortAllocator {
+// NewPortAllocator creates a PortAllocator for the given port range [base, maxPort).
+func NewPortAllocator(base, maxPort uint16) *PortAllocator {
 	return &PortAllocator{
 		basePort:    base,
-		maxPort:     max,
+		maxPort:     maxPort,
 		allocated:   make(map[uint16]bool),
 		listenCheck: tcpListenCheck,
 	}

@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -18,15 +17,29 @@ import (
 
 // fakeExecutor implements execution.Executor for testing.
 type fakeExecutor struct {
-	lastCommand string
+	lastCodeReq *execution.CodeExecution
+	lastPkgReq  *execution.PackageInstallation
 	result      *execution.ExecResult
 	err         error
 }
 
-func (f *fakeExecutor) Execute(
-	_ context.Context, _ string, command string, _ time.Duration,
+func (f *fakeExecutor) ExecuteCode(
+	_ context.Context, _ string, _ execution.ConnInfo, req *execution.CodeExecution,
 ) (*execution.ExecResult, error) {
-	f.lastCommand = command
+	f.lastCodeReq = req
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.result != nil {
+		return f.result, nil
+	}
+	return &execution.ExecResult{Stdout: "ok", ExitCode: 0}, nil
+}
+
+func (f *fakeExecutor) InstallPackages(
+	_ context.Context, _ string, _ execution.ConnInfo, req *execution.PackageInstallation,
+) (*execution.ExecResult, error) {
+	f.lastPkgReq = req
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -54,7 +67,7 @@ func setupExecTest(t *testing.T) (*ExecutionService, *fakeExecutor, string) {
 	}
 
 	executor := &fakeExecutor{}
-	execSvc := NewExecutionService(repo, executor, envSvc, cfg)
+	execSvc := NewExecutionService(repo, executor, provider, envSvc, cfg)
 
 	return execSvc, executor, env.ID
 }
@@ -73,18 +86,19 @@ func TestExecutionServiceExecute(t *testing.T) {
 		t.Errorf("Stdout = %q, want %q", result.Stdout, "ok")
 	}
 
-	// Verify the command uses python3 and writes to a temp file.
-	if !strings.Contains(executor.lastCommand, "python3") {
-		t.Errorf("command should contain python3, got: %s", executor.lastCommand)
+	// Verify the request contains python3 exec command, .py extension, and user code.
+	req := executor.lastCodeReq
+	if req == nil {
+		t.Fatal("ExecuteCode was not called")
 	}
-	if !strings.Contains(executor.lastCommand, "/tmp/waggle_") {
-		t.Errorf("command should use temp file, got: %s", executor.lastCommand)
+	if req.ExecCommand != "python3" {
+		t.Errorf("ExecCommand = %q, want %q", req.ExecCommand, "python3")
 	}
-	if !strings.Contains(executor.lastCommand, "print('hello')") {
-		t.Errorf("command should contain user code, got: %s", executor.lastCommand)
+	if req.FileExtension != ".py" {
+		t.Errorf("FileExtension = %q, want %q", req.FileExtension, ".py")
 	}
-	if !strings.Contains(executor.lastCommand, "rm -f") {
-		t.Errorf("command should clean up temp file, got: %s", executor.lastCommand)
+	if req.Code != "print('hello')" {
+		t.Errorf("Code = %q, want %q", req.Code, "print('hello')")
 	}
 }
 
@@ -99,11 +113,15 @@ func TestExecutionServiceExecuteWithLanguageOverride(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 
-	if !strings.Contains(executor.lastCommand, "node") {
-		t.Errorf("command should use node, got: %s", executor.lastCommand)
+	req := executor.lastCodeReq
+	if req == nil {
+		t.Fatal("ExecuteCode was not called")
 	}
-	if !strings.Contains(executor.lastCommand, ".js") {
-		t.Errorf("command should use .js extension, got: %s", executor.lastCommand)
+	if req.ExecCommand != "node" {
+		t.Errorf("ExecCommand = %q, want %q", req.ExecCommand, "node")
+	}
+	if req.FileExtension != ".js" {
+		t.Errorf("FileExtension = %q, want %q", req.FileExtension, ".js")
 	}
 }
 
@@ -128,7 +146,7 @@ func TestExecutionServiceExecuteNotRunning(t *testing.T) {
 	// Don't transition to Running, stays in Creating.
 	_ = repo.Save(ctx, env)
 
-	svc := NewExecutionService(repo, &fakeExecutor{}, nil, testConfig())
+	svc := NewExecutionService(repo, &fakeExecutor{}, newFakeProvider(), nil, testConfig())
 
 	_, err := svc.Execute(ctx, "stopped-id", "code", "", 0)
 	if !errors.Is(err, environment.ErrNotRunning) {
@@ -147,11 +165,15 @@ func TestExecutionServiceInstallPackages(t *testing.T) {
 		t.Fatalf("InstallPackages: %v", err)
 	}
 
-	if !strings.Contains(executor.lastCommand, "pip install") {
-		t.Errorf("command should use pip install, got: %s", executor.lastCommand)
+	req := executor.lastPkgReq
+	if req == nil {
+		t.Fatal("InstallPackages was not called")
 	}
-	if !strings.Contains(executor.lastCommand, "numpy pandas") {
-		t.Errorf("command should contain package names, got: %s", executor.lastCommand)
+	if req.InstallCommand != "pip install" {
+		t.Errorf("InstallCommand = %q, want %q", req.InstallCommand, "pip install")
+	}
+	if len(req.Packages) != 2 || req.Packages[0] != "numpy" || req.Packages[1] != "pandas" {
+		t.Errorf("Packages = %v, want [numpy pandas]", req.Packages)
 	}
 }
 

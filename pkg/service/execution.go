@@ -6,20 +6,19 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/stacklok/waggle/pkg/config"
 	"github.com/stacklok/waggle/pkg/domain/environment"
 	"github.com/stacklok/waggle/pkg/domain/execution"
+	"github.com/stacklok/waggle/pkg/infra/vm"
 )
 
 // ExecutionService orchestrates code execution within environments.
 type ExecutionService struct {
 	repo     environment.Repository
 	executor execution.Executor
+	provider vm.Provider
 	envSvc   *EnvironmentService
 	config   *config.Config
 }
@@ -28,19 +27,21 @@ type ExecutionService struct {
 func NewExecutionService(
 	repo environment.Repository,
 	executor execution.Executor,
+	provider vm.Provider,
 	envSvc *EnvironmentService,
 	cfg *config.Config,
 ) *ExecutionService {
 	return &ExecutionService{
 		repo:     repo,
 		executor: executor,
+		provider: provider,
 		envSvc:   envSvc,
 		config:   cfg,
 	}
 }
 
-// Execute runs code in the specified environment. It writes the code to a
-// temp file in the VM, executes it, captures output, and cleans up.
+// Execute runs code in the specified environment. It validates the environment,
+// resolves connection info, and delegates execution to the Executor.
 func (s *ExecutionService) Execute(
 	ctx context.Context, envID, code, language string, timeoutSec int,
 ) (*execution.ExecResult, error) {
@@ -74,19 +75,21 @@ func (s *ExecutionService) Execute(
 		}
 	}
 
-	// Build the execution command: write code to temp file, execute, clean up.
-	tempFile := fmt.Sprintf("/tmp/waggle_%s%s", uuid.New().String()[:12], rt.FileExtension())
-	execCmd := rt.ExecCommand()
+	// Resolve pre-validated connection info.
+	conn, connErr := s.connInfo(envID, env.SSHPort)
+	if connErr != nil {
+		return nil, connErr
+	}
 
-	// Combined command: write code via heredoc, execute, clean up.
-	// Using a unique delimiter to avoid conflicts with user code.
-	delimiter := fmt.Sprintf("WAGGLE_EOF_%s", uuid.New().String()[:8])
-	command := fmt.Sprintf(
-		"cat > %s << '%s'\n%s\n%s\n%s %s; __exit=$?; rm -f %s; exit $__exit",
-		tempFile, delimiter, code, delimiter, execCmd, tempFile, tempFile,
-	)
+	req := &execution.CodeExecution{
+		Language:      rt.String(),
+		Code:          code,
+		TimeoutMs:     timeout.Milliseconds(),
+		ExecCommand:   rt.ExecCommand(),
+		FileExtension: rt.FileExtension(),
+	}
 
-	return s.executor.Execute(ctx, envID, command, timeout)
+	return s.executor.ExecuteCode(ctx, envID, conn, req)
 }
 
 // InstallPackages installs language packages in the specified environment.
@@ -107,6 +110,30 @@ func (s *ExecutionService) InstallPackages(
 		return &execution.ExecResult{ExitCode: 0}, nil
 	}
 
-	command := fmt.Sprintf("%s %s", env.Runtime.PackageInstallCommand(), strings.Join(packages, " "))
-	return s.executor.Execute(ctx, envID, command, s.config.MaxExecTimeout)
+	// Resolve pre-validated connection info.
+	conn, connErr := s.connInfo(envID, env.SSHPort)
+	if connErr != nil {
+		return nil, connErr
+	}
+
+	req := &execution.PackageInstallation{
+		Language:       env.Runtime.String(),
+		Packages:       packages,
+		InstallCommand: env.Runtime.PackageInstallCommand(),
+	}
+
+	return s.executor.InstallPackages(ctx, envID, conn, req)
+}
+
+// connInfo resolves pre-validated SSH connection info for an environment.
+func (s *ExecutionService) connInfo(envID string, sshPort uint16) (execution.ConnInfo, error) {
+	keyPath := s.provider.SSHKeyPath(envID)
+	if keyPath == "" {
+		return execution.ConnInfo{}, fmt.Errorf("SSH key not found for environment %q", envID)
+	}
+	return execution.ConnInfo{
+		Host:    "127.0.0.1",
+		Port:    sshPort,
+		KeyPath: keyPath,
+	}, nil
 }
