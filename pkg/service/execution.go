@@ -15,6 +15,9 @@ import (
 	"github.com/stacklok/waggle/pkg/infra/vm"
 )
 
+// maxCodeSize is the maximum allowed size for code payloads (500 KB).
+const maxCodeSize = 512_000
+
 // ExecutionService orchestrates code execution within environments.
 type ExecutionService struct {
 	repo     environment.Repository
@@ -46,6 +49,10 @@ func NewExecutionService(
 func (s *ExecutionService) Execute(
 	ctx context.Context, envID, code, language string, timeoutSec int,
 ) (*execution.ExecResult, error) {
+	if len(code) > maxCodeSize {
+		return nil, fmt.Errorf("code payload too large: %d bytes exceeds limit of %d bytes", len(code), maxCodeSize)
+	}
+
 	env, err := s.repo.FindByID(ctx, envID)
 	if err != nil {
 		return nil, err
@@ -115,6 +122,16 @@ func (s *ExecutionService) InstallPackages(
 		return &execution.ExecResult{ExitCode: 0}, nil
 	}
 
+	// Validate each package name against the allowlist before passing to the executor.
+	validatedNames := make([]string, 0, len(packages))
+	for _, pkg := range packages {
+		pn, err := execution.NewPackageName(pkg)
+		if err != nil {
+			return nil, fmt.Errorf("invalid package name: %w", err)
+		}
+		validatedNames = append(validatedNames, pn.String())
+	}
+
 	// Resolve pre-validated connection info.
 	conn, connErr := s.connInfo(envID, env.SSHPort)
 	if connErr != nil {
@@ -123,7 +140,7 @@ func (s *ExecutionService) InstallPackages(
 
 	req := &execution.PackageInstallation{
 		Language:       env.Runtime.String(),
-		Packages:       packages,
+		Packages:       validatedNames,
 		InstallCommand: env.Runtime.PackageInstallCommand(),
 	}
 

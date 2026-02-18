@@ -6,6 +6,7 @@ package ssh
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -25,7 +26,8 @@ func NewExecutor() *Executor {
 }
 
 // ExecuteCode runs code in the specified environment via SSH.
-// It writes the code to a temp file, executes it, captures output, and cleans up.
+// It writes the code to a temp file via base64 decoding (so raw user code never
+// appears in the shell command string), executes it, captures output, and cleans up.
 func (e *Executor) ExecuteCode(
 	ctx context.Context, _ string, conn execution.ConnInfo, req *execution.CodeExecution,
 ) (*execution.ExecResult, error) {
@@ -33,26 +35,45 @@ func (e *Executor) ExecuteCode(
 
 	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
 
-	// Build execution command: write code to temp file, execute, clean up.
+	// Base64-encode user code so it never appears raw in the shell command.
+	encoded := base64.StdEncoding.EncodeToString([]byte(req.Code))
+
+	// Build the temp file path and shell-escape it for safe interpolation.
 	tempFile := fmt.Sprintf("/tmp/waggle_%s%s", uuid.New().String()[:12], req.FileExtension)
-	delimiter := fmt.Sprintf("WAGGLE_EOF_%s", uuid.New().String()[:8])
+	escapedTempFile := propolisssh.ShellEscape(tempFile)
+
+	// Write code via base64 decode into the temp file, then execute and clean up.
+	// Using printf | base64 -d avoids heredoc quoting issues entirely.
 	command := fmt.Sprintf(
-		"cat > %s << '%s'\n%s\n%s\n%s %s; __exit=$?; rm -f %s; exit $__exit",
-		tempFile, delimiter, req.Code, delimiter, req.ExecCommand, tempFile, tempFile,
+		"printf '%%s' %s | base64 -d > %s; %s %s; __exit=$?; rm -f %s; exit $__exit",
+		propolisssh.ShellEscape(encoded),
+		escapedTempFile,
+		req.ExecCommand,
+		escapedTempFile,
+		escapedTempFile,
 	)
 
 	return e.run(ctx, client, command, timeout)
 }
 
 // InstallPackages installs language packages in the specified environment via SSH.
+// Each package name is shell-escaped before being included in the command.
 func (e *Executor) InstallPackages(
 	ctx context.Context, _ string, conn execution.ConnInfo, req *execution.PackageInstallation,
 ) (*execution.ExecResult, error) {
 	client := propolisssh.NewClient(conn.Host, conn.Port, "root", conn.KeyPath)
-
-	command := fmt.Sprintf("%s %s", req.InstallCommand, strings.Join(req.Packages, " "))
-
+	command := buildInstallCommand(req.InstallCommand, req.Packages)
 	return e.run(ctx, client, command, 0)
+}
+
+// buildInstallCommand constructs the shell command for installing packages.
+// Each package name is shell-escaped to prevent command injection.
+func buildInstallCommand(installCmd string, packages []string) string {
+	escapedPkgs := make([]string, len(packages))
+	for i, pkg := range packages {
+		escapedPkgs[i] = propolisssh.ShellEscape(pkg)
+	}
+	return fmt.Sprintf("%s %s", installCmd, strings.Join(escapedPkgs, " "))
 }
 
 // run executes a command via SSH and returns the result.
