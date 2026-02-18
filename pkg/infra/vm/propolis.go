@@ -125,7 +125,8 @@ func (p *PropolisProvider) DestroyVM(ctx context.Context, envID string) error {
 	p.mu.Unlock()
 
 	if !ok {
-		return fmt.Errorf("vm for environment %q not found", envID)
+		slog.Debug("DestroyVM called but VM already gone", "env_id", envID)
+		return nil
 	}
 
 	slog.Info("destroying microVM", "env_id", envID)

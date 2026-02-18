@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 
@@ -101,12 +102,17 @@ func run() error {
 
 	// Clean up all environments on shutdown.
 	slog.Info("cleaning up environments")
-	envs, _ := envSvc.List(context.Background())
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+	envs, _ := envSvc.List(shutdownCtx)
 	for _, env := range envs {
-		if destroyErr := envSvc.Destroy(context.Background(), env.ID); destroyErr != nil {
+		if destroyErr := envSvc.Destroy(shutdownCtx, env.ID); destroyErr != nil {
 			slog.Error("failed to destroy environment on shutdown",
 				"id", env.ID, "error", destroyErr)
 		}
+	}
+	if shutdownCtx.Err() != nil {
+		slog.Warn("shutdown deadline exceeded, some environments may not have been cleaned up")
 	}
 
 	slog.Info("waggle stopped")
