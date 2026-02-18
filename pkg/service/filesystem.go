@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/stacklok/waggle/pkg/domain/environment"
@@ -56,7 +57,9 @@ func (s *FilesystemService) WriteFile(
 		return err
 	}
 
-	_ = s.envSvc.Touch(ctx, envID)
+	if err := s.envSvc.Touch(ctx, envID); err != nil {
+		slog.Warn("failed to touch environment", "env_id", envID, "error", err)
+	}
 
 	return s.fs.WriteFile(ctx, conn, path, []byte(content), mode)
 }
@@ -70,7 +73,9 @@ func (s *FilesystemService) ReadFile(
 		return "", err
 	}
 
-	_ = s.envSvc.Touch(ctx, envID)
+	if err := s.envSvc.Touch(ctx, envID); err != nil {
+		slog.Warn("failed to touch environment", "env_id", envID, "error", err)
+	}
 
 	data, readErr := s.fs.ReadFile(ctx, conn, path)
 	if readErr != nil {
@@ -91,7 +96,9 @@ func (s *FilesystemService) ListFiles(
 		return nil, err
 	}
 
-	_ = s.envSvc.Touch(ctx, envID)
+	if err := s.envSvc.Touch(ctx, envID); err != nil {
+		slog.Warn("failed to touch environment", "env_id", envID, "error", err)
+	}
 
 	return s.fs.ListFiles(ctx, conn, path)
 }

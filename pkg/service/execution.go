@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/stacklok/waggle/pkg/config"
@@ -54,7 +55,9 @@ func (s *ExecutionService) Execute(
 	}
 
 	// Touch the environment to reset inactivity timer.
-	_ = s.envSvc.Touch(ctx, envID)
+	if err := s.envSvc.Touch(ctx, envID); err != nil {
+		slog.Warn("failed to touch environment", "env_id", envID, "error", err)
+	}
 
 	// Determine runtime for this execution.
 	rt := env.Runtime
@@ -104,7 +107,9 @@ func (s *ExecutionService) InstallPackages(
 		return nil, environment.ErrNotRunning
 	}
 
-	_ = s.envSvc.Touch(ctx, envID)
+	if err := s.envSvc.Touch(ctx, envID); err != nil {
+		slog.Warn("failed to touch environment", "env_id", envID, "error", err)
+	}
 
 	if len(packages) == 0 {
 		return &execution.ExecResult{ExitCode: 0}, nil

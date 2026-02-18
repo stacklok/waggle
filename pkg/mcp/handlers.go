@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -52,7 +53,8 @@ func (h *ToolHandler) HandleCreateEnvironment(
 
 	env, err := h.envSvc.Create(ctx, environment.Runtime(runtime), name, timeoutMin)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to create environment: %s", err)), nil
+		slog.Error("failed to create environment", "error", err)
+		return mcp.NewToolResultError("failed to create environment"), nil
 	}
 
 	return jsonResult(map[string]any{
@@ -78,7 +80,8 @@ func (h *ToolHandler) HandleDestroyEnvironment(
 	}
 
 	if err := h.envSvc.Destroy(ctx, envID); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to destroy environment: %s", err)), nil
+		slog.Error("failed to destroy environment", "env_id", envID, "error", err)
+		return mcp.NewToolResultError("failed to destroy environment"), nil
 	}
 
 	return jsonResult(map[string]any{
@@ -93,7 +96,8 @@ func (h *ToolHandler) HandleListEnvironments(
 ) (*mcp.CallToolResult, error) {
 	envs, err := h.envSvc.List(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to list environments: %s", err)), nil
+		slog.Error("failed to list environments", "error", err)
+		return mcp.NewToolResultError("failed to list environments"), nil
 	}
 
 	items := make([]map[string]any, 0, len(envs))
@@ -134,7 +138,8 @@ func (h *ToolHandler) HandleExecute(
 
 	result, err := h.execSvc.Execute(ctx, envID, code, language, timeoutSec)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Execution failed: %s", err)), nil
+		slog.Error("failed to execute code", "env_id", envID, "error", err)
+		return mcp.NewToolResultError("failed to execute code"), nil
 	}
 
 	return jsonResult(map[string]any{
@@ -164,7 +169,8 @@ func (h *ToolHandler) HandleWriteFile(
 	content, _ := args["content"].(string)
 
 	if err := h.fsSvc.WriteFile(ctx, envID, path, content, 0o644); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to write file: %s", err)), nil
+		slog.Error("failed to write file", "env_id", envID, "path", path, "error", err)
+		return mcp.NewToolResultError("failed to write file"), nil
 	}
 
 	return jsonResult(map[string]any{
@@ -192,7 +198,8 @@ func (h *ToolHandler) HandleReadFile(
 
 	content, err := h.fsSvc.ReadFile(ctx, envID, path)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to read file: %s", err)), nil
+		slog.Error("failed to read file", "env_id", envID, "path", path, "error", err)
+		return mcp.NewToolResultError("failed to read file"), nil
 	}
 
 	return mcp.NewToolResultText(content), nil
@@ -216,7 +223,8 @@ func (h *ToolHandler) HandleListFiles(
 
 	files, err := h.fsSvc.ListFiles(ctx, envID, path)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to list files: %s", err)), nil
+		slog.Error("failed to list files", "env_id", envID, "path", path, "error", err)
+		return mcp.NewToolResultError("failed to list files"), nil
 	}
 
 	items := make([]map[string]any, 0, len(files))
@@ -257,7 +265,8 @@ func (h *ToolHandler) HandleInstallPackages(
 
 	result, err := h.execSvc.InstallPackages(ctx, envID, packages)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Package installation failed: %s", err)), nil
+		slog.Error("failed to install packages", "env_id", envID, "error", err)
+		return mcp.NewToolResultError("failed to install packages"), nil
 	}
 
 	return jsonResult(map[string]any{
