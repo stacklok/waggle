@@ -110,8 +110,14 @@ func (s *EnvironmentService) Create(
 	})
 	if vmErr != nil {
 		// Transition to error state.
-		_ = env.TransitionTo(environment.StatusError)
-		_ = s.repo.Save(ctx, env)
+		if transErr := env.TransitionTo(environment.StatusError); transErr != nil {
+			slog.Error("failed to transition environment to error state",
+				"id", env.ID, "error", transErr, "vm_error", vmErr)
+		}
+		if saveErr := s.repo.Save(ctx, env); saveErr != nil {
+			slog.Error("failed to save environment error state",
+				"id", env.ID, "error", saveErr, "vm_error", vmErr)
+		}
 		s.portAlloc.Release(sshPort)
 		return nil, fmt.Errorf("create VM: %w", vmErr)
 	}
@@ -147,7 +153,9 @@ func (s *EnvironmentService) Destroy(ctx context.Context, envID string) error {
 		slog.Warn("state transition failed, proceeding with cleanup",
 			"id", envID, "error", transErr)
 	}
-	_ = s.repo.Save(ctx, env)
+	if saveErr := s.repo.Save(ctx, env); saveErr != nil {
+		slog.Error("failed to save destroying state", "id", envID, "error", saveErr)
+	}
 
 	// Destroy the VM.
 	if vmErr := s.provider.DestroyVM(ctx, envID); vmErr != nil {
@@ -158,7 +166,9 @@ func (s *EnvironmentService) Destroy(ctx context.Context, envID string) error {
 	s.portAlloc.Release(env.SSHPort)
 
 	// Remove from store.
-	_ = s.repo.Delete(ctx, envID)
+	if err := s.repo.Delete(ctx, envID); err != nil {
+		return fmt.Errorf("delete environment from store: %w", err)
+	}
 
 	return nil
 }
