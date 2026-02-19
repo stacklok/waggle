@@ -111,9 +111,9 @@ cd waggle
 task build
 
 # Configure runtime images and run
-export WAGGLE_IMAGE_PYTHON=ghcr.io/stacklok/waggle-python:latest
-export WAGGLE_IMAGE_NODE=ghcr.io/stacklok/waggle-node:latest
-export WAGGLE_IMAGE_SHELL=alpine:latest
+export WAGGLE_IMAGE_PYTHON=ghcr.io/stacklok/waggle/python:latest
+export WAGGLE_IMAGE_NODE=ghcr.io/stacklok/waggle/node:latest
+export WAGGLE_IMAGE_SHELL=ghcr.io/stacklok/waggle/shell:latest
 task run
 ```
 
@@ -156,6 +156,33 @@ Each environment is a separate microVM with its own kernel — not a container s
 - Configurable resource limits (CPU, memory, max environments, timeouts)
 - Background reaper auto-destroys idle environments
 - No host filesystem exposed to environments
+
+## Runtime Images
+
+Waggle provides reference OCI images for each supported runtime. These are minimal Alpine containers with just the language runtime and required utilities.
+
+| Image | Contents |
+|-------|----------|
+| `ghcr.io/stacklok/waggle/python:latest` | Alpine 3.21 + Python 3, pip, coreutils, findutils |
+| `ghcr.io/stacklok/waggle/node:latest` | Alpine 3.21 + Node.js, npm, coreutils, findutils |
+| `ghcr.io/stacklok/waggle/shell:latest` | Alpine 3.21 + coreutils, findutils |
+
+Build all images locally:
+
+```bash
+task build-images          # Build all three runtime images
+task build-image-python    # Build only the Python image
+```
+
+### Custom Images
+
+You can use your own OCI images as long as they include:
+
+- The language runtime for the target environment (`python3`, `node`, etc.)
+- GNU coreutils (waggle's SSH executor requires `base64 -d`)
+- GNU findutils (waggle's file listing requires `find -printf`)
+
+No SSH server is needed — `waggle-init` is injected into the VM at boot time by propolis and handles all communication.
 
 ## Development
 

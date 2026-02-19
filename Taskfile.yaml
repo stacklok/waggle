@@ -7,6 +7,9 @@ vars:
   BINARY_NAME: waggle
   BUILD_DIR: bin
   MAIN_PACKAGE: ./cmd/waggle
+  IMAGE_REGISTRY: ghcr.io/stacklok/waggle
+  IMAGE_TAG:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
   VERSION:
     sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
   COMMIT:
@@ -115,6 +118,39 @@ tasks:
     cmds:
       - rm -rf {{.BUILD_DIR}}/
       - rm -f coverage.out coverage.html
+
+  build-image-python:
+    desc: Build Python runtime image
+    cmds:
+      - docker build -t {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}} images/python/
+    sources:
+      - images/python/Dockerfile
+
+  build-image-node:
+    desc: Build Node.js runtime image
+    cmds:
+      - docker build -t {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}} images/node/
+    sources:
+      - images/node/Dockerfile
+
+  build-image-shell:
+    desc: Build shell runtime image
+    cmds:
+      - docker build -t {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}} images/shell/
+    sources:
+      - images/shell/Dockerfile
+
+  build-images:
+    desc: Build all runtime images
+    deps: [build-image-python, build-image-node, build-image-shell]
+
+  push-images:
+    desc: Push all runtime images to registry
+    deps: [build-images]
+    cmds:
+      - docker push {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}}
+      - docker push {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}}
+      - docker push {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}}
 
   run:
     desc: Build and run the server

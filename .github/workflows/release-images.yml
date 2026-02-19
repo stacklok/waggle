@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: Copyright 2025 Stacklok, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Release Runtime Images
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions: {}
+
+jobs:
+  build-and-push:
+    name: Build ${{ matrix.image }} image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      matrix:
+        image: [python, node, shell]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract tag version
+        id: tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Set repository owner lowercase
+        id: repo_owner
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: echo "OWNER=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Build and push image
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6
+        with:
+          context: images/${{ matrix.image }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo_owner.outputs.OWNER }}/waggle/${{ matrix.image }}:${{ steps.tag.outputs.VERSION }}
+            ghcr.io/${{ steps.repo_owner.outputs.OWNER }}/waggle/${{ matrix.image }}:latest
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Sign images with Cosign
+        env:
+          IMAGE: ghcr.io/${{ steps.repo_owner.outputs.OWNER }}/waggle/${{ matrix.image }}
+          TAG_VERSION: ${{ steps.tag.outputs.VERSION }}
+        run: |
+          cosign sign -y "$IMAGE:$TAG_VERSION"
+          cosign sign -y "$IMAGE:latest"
