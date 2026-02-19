@@ -4,7 +4,7 @@
 
 | Requirement | Purpose |
 |-------------|---------|
-| Go 1.25.6+ | Language runtime |
+| Go 1.25.7+ | Language runtime |
 | [Task](https://taskfile.dev/) | Build system (`go install github.com/go-task/task/v3/cmd/task@latest`) |
 | [golangci-lint](https://golangci-lint.run/) | Linting |
 | [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) | Import formatting |

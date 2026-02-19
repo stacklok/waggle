@@ -121,7 +121,7 @@ The server starts on `127.0.0.1:8080` with the MCP endpoint at `/mcp` (Streamabl
 
 ### Prerequisites
 
-- Go 1.25.6+, [Task](https://taskfile.dev/)
+- Go 1.25.7+, [Task](https://taskfile.dev/)
 - [propolis](https://github.com/stacklok/propolis) checked out at `../propolis`
 - `propolis-runner` binary in PATH (see propolis docs)
 - libkrun (Linux: `libkrun-devel`, macOS: Homebrew)
