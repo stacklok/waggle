@@ -78,7 +78,7 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 		propolis.WithDataDir(envDataDir),
 
 		// Inject SSH authorized_keys into the rootfs before boot.
-		propolis.WithRootFSHook(hooks.InjectAuthorizedKeys(pubKeyContent, hooks.WithKeyUser("/root", 0, 0))),
+		propolis.WithRootFSHook(hooks.InjectAuthorizedKeys(pubKeyContent, hooks.WithKeyUser("/home/sandbox", 1000, 1000))),
 
 		// Wait for SSH to become ready after boot.
 		propolis.WithPostBoot(sshReadyWaiter(env.SSHPort, privateKeyPath)),
@@ -188,7 +188,7 @@ func initInjector(initPath string) (propolis.RootFSHook, error) {
 // available on the given port.
 func sshReadyWaiter(port uint16, keyPath string) propolis.PostBootHook {
 	return func(ctx context.Context, _ *propolis.VM) error {
-		client := propolisssh.NewClient("127.0.0.1", port, "root", keyPath)
+		client := propolisssh.NewClient("127.0.0.1", port, "sandbox", keyPath)
 		return client.WaitForReady(ctx)
 	}
 }

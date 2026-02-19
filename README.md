@@ -17,12 +17,12 @@ Agent: I need to analyze this CSV data. Let me set up an environment.
 → install_packages(environment_id: "a1b2c3", packages: "pandas matplotlib")
 ← { exit_code: 0 }
 
-→ write_file(environment_id: "a1b2c3", path: "/root/data.csv", content: "name,score\nAlice,95\nBob,87\n...")
+→ write_file(environment_id: "a1b2c3", path: "/home/sandbox/data.csv", content: "name,score\nAlice,95\nBob,87\n...")
 ← { status: "written", bytes_written: 1024 }
 
 → execute(environment_id: "a1b2c3", code: """
   import pandas as pd
-  df = pd.read_csv('/root/data.csv')
+  df = pd.read_csv('/home/sandbox/data.csv')
   print(f"Mean score: {df['score'].mean():.1f}")
   print(f"Top performer: {df.loc[df['score'].idxmax(), 'name']}")
   """)

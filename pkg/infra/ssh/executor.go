@@ -31,7 +31,7 @@ func NewExecutor() *Executor {
 func (e *Executor) ExecuteCode(
 	ctx context.Context, _ string, conn execution.ConnInfo, req *execution.CodeExecution,
 ) (*execution.ExecResult, error) {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "root", conn.KeyPath)
+	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 
 	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
 
@@ -61,7 +61,7 @@ func (e *Executor) ExecuteCode(
 func (e *Executor) InstallPackages(
 	ctx context.Context, _ string, conn execution.ConnInfo, req *execution.PackageInstallation,
 ) (*execution.ExecResult, error) {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "root", conn.KeyPath)
+	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 	command := buildInstallCommand(req.InstallCommand, req.Packages)
 	return e.run(ctx, client, command, 0)
 }

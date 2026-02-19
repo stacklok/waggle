@@ -132,7 +132,7 @@ func listFilesTool() mcp.Tool {
 			mcp.Description("ID of the target environment"),
 		),
 		mcp.WithString("path",
-			mcp.Description("Directory path to list (default: /root)"),
+			mcp.Description("Directory path to list (default: /home/sandbox)"),
 		),
 	)
 }

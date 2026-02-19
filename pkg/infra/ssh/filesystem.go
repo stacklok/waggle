@@ -29,7 +29,7 @@ func NewFileSystem() *FileSystem {
 func (*FileSystem) WriteFile(
 	ctx context.Context, conn filesystem.ConnInfo, path string, content []byte, mode os.FileMode,
 ) error {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "root", conn.KeyPath)
+	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 
 	// Create parent directory if needed.
 	dir := parentDir(path)
@@ -86,7 +86,7 @@ func (*FileSystem) WriteFile(
 
 // ReadFile reads a file from the environment via SSH.
 func (*FileSystem) ReadFile(ctx context.Context, conn filesystem.ConnInfo, path string) ([]byte, error) {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "root", conn.KeyPath)
+	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 
 	cmd := fmt.Sprintf("cat %s", propolisssh.ShellEscape(path))
 	output, runErr := client.Run(ctx, cmd)
@@ -101,7 +101,7 @@ func (*FileSystem) ReadFile(ctx context.Context, conn filesystem.ConnInfo, path 
 func (*FileSystem) ListFiles(
 	ctx context.Context, conn filesystem.ConnInfo, path string,
 ) ([]filesystem.FileInfo, error) {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "root", conn.KeyPath)
+	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 
 	// Use stat-style output for reliable parsing.
 	// Format: type|perms|size|mtime_epoch|name

@@ -25,11 +25,9 @@ func main() {
 	// Boot: mounts, network, hardening, SSH server.
 	shutdown, err := boot.Run(logger,
 		boot.WithSSHPort(22),
-		boot.WithSSHKeysPath("/root/.ssh/authorized_keys"),
-		boot.WithUser("root", "/root", "/bin/sh", 0, 0),
-		// Root lockdown is unnecessary because SSH sessions run as root (UID 0).
-		// The security boundary is the KVM hypervisor, not in-guest permissions.
-		boot.WithLockdownRoot(false),
+		boot.WithSSHKeysPath("/home/sandbox/.ssh/authorized_keys"),
+		boot.WithUser("sandbox", "/home/sandbox", "/bin/sh", 1000, 1000),
+		boot.WithLockdownRoot(true),
 	)
 	if err != nil {
 		logger.Error("boot failed", "error", err)

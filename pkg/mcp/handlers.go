@@ -218,7 +218,7 @@ func (h *ToolHandler) HandleListFiles(
 
 	path, _ := args["path"].(string)
 	if path == "" {
-		path = "/root"
+		path = "/home/sandbox"
 	}
 
 	files, err := h.fsSvc.ListFiles(ctx, envID, path)
