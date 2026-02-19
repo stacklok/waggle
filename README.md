@@ -110,10 +110,10 @@ git clone https://github.com/stacklok/waggle.git
 cd waggle
 task build
 
-# Configure runtime images and run
-export WAGGLE_IMAGE_PYTHON=ghcr.io/stacklok/waggle/python:latest
-export WAGGLE_IMAGE_NODE=ghcr.io/stacklok/waggle/node:latest
-export WAGGLE_IMAGE_SHELL=ghcr.io/stacklok/waggle/shell:latest
+# Optional: override runtime images
+# export WAGGLE_IMAGE_PYTHON=ghcr.io/stacklok/waggle/python:latest
+# export WAGGLE_IMAGE_NODE=ghcr.io/stacklok/waggle/node:latest
+# export WAGGLE_IMAGE_SHELL=ghcr.io/stacklok/waggle/shell:latest
 task run
 ```
 
@@ -140,9 +140,9 @@ All settings via `WAGGLE_*` environment variables:
 | `WAGGLE_DEFAULT_TIMEOUT_MIN` | `30` | Inactivity timeout (minutes) |
 | `WAGGLE_DEFAULT_EXEC_TIMEOUT` | `30s` | Default execution timeout |
 | `WAGGLE_MAX_EXEC_TIMEOUT` | `5m` | Max execution timeout |
-| `WAGGLE_IMAGE_PYTHON` | _(required)_ | OCI image for Python environments |
-| `WAGGLE_IMAGE_NODE` | _(required)_ | OCI image for Node.js environments |
-| `WAGGLE_IMAGE_SHELL` | _(required)_ | OCI image for shell environments |
+| `WAGGLE_IMAGE_PYTHON` | `ghcr.io/stacklok/waggle/python:latest` | OCI image for Python environments |
+| `WAGGLE_IMAGE_NODE` | `ghcr.io/stacklok/waggle/node:latest` | OCI image for Node.js environments |
+| `WAGGLE_IMAGE_SHELL` | `ghcr.io/stacklok/waggle/shell:latest` | OCI image for shell environments |
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full configuration reference and development guide.
 
@@ -159,7 +159,7 @@ Each environment is a separate microVM with its own kernel — not a container s
 
 ## Runtime Images
 
-Waggle provides reference OCI images for each supported runtime. These are minimal Alpine containers with just the language runtime and required utilities.
+Waggle provides reference OCI images for each supported runtime and uses them by default. These are minimal Alpine containers with just the language runtime and required utilities.
 
 | Image | Contents |
 |-------|----------|

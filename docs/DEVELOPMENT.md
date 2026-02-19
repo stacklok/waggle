@@ -94,7 +94,7 @@ go test -v -race -run TestPortAllocatorConcurrent ./pkg/infra/vm/
 2. Add it to `ValidRuntimes` slice
 3. Add cases in `Validate()`, `FileExtension()`, `ExecCommand()`, `PackageInstallCommand()`
 4. Add tests in `runtime_test.go`
-5. Configure the OCI image via `WAGGLE_IMAGE_<RUNTIME>` environment variable
+5. Configure the OCI image via `WAGGLE_IMAGE_<RUNTIME>` (or add a default image in config)
 
 ## Testing Patterns
 
@@ -165,9 +165,10 @@ Always wrap with context: `fmt.Errorf("create VM: %w", err)`
 ## Running the Server
 
 ```bash
-# Required: configure at least one runtime image
-export WAGGLE_IMAGE_PYTHON=ghcr.io/stacklok/waggle-python:latest
-export WAGGLE_IMAGE_SHELL=alpine:latest
+# Optional: override runtime images
+# export WAGGLE_IMAGE_PYTHON=ghcr.io/stacklok/waggle/python:latest
+# export WAGGLE_IMAGE_NODE=ghcr.io/stacklok/waggle/node:latest
+# export WAGGLE_IMAGE_SHELL=ghcr.io/stacklok/waggle/shell:latest
 
 # Optional: customize settings
 export WAGGLE_LISTEN_ADDR=127.0.0.1:9090

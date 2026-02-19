@@ -30,6 +30,9 @@ const (
 	defaultSSHPortMax      = 11000
 	defaultReaperInterval  = time.Minute
 	defaultDataDirName     = "waggle"
+	defaultImagePython     = "ghcr.io/stacklok/waggle/python:latest"
+	defaultImageNode       = "ghcr.io/stacklok/waggle/node:latest"
+	defaultImageShell      = "ghcr.io/stacklok/waggle/shell:latest"
 )
 
 // Config holds the waggle server configuration.
@@ -101,7 +104,7 @@ func Default() *Config {
 		SSHPortBase:        defaultSSHPortBase,
 		SSHPortMax:         defaultSSHPortMax,
 		DataDir:            defaultDataDir(),
-		Images:             make(map[string]string),
+		Images:             defaultImages(),
 		ReaperInterval:     defaultReaperInterval,
 	}
 }
@@ -223,6 +226,14 @@ func defaultDataDir() string {
 		return filepath.Join(os.TempDir(), defaultDataDirName)
 	}
 	return filepath.Join(home, ".config", defaultDataDirName)
+}
+
+func defaultImages() map[string]string {
+	return map[string]string{
+		string(environment.RuntimePython): defaultImagePython,
+		string(environment.RuntimeNode):   defaultImageNode,
+		string(environment.RuntimeShell):  defaultImageShell,
+	}
 }
 
 func envInt(name string) int {

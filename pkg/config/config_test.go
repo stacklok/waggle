@@ -35,6 +35,15 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.DataDir == "" {
 		t.Error("DataDir should not be empty")
 	}
+	if cfg.ImageRef(environment.RuntimePython) != defaultImagePython {
+		t.Errorf("ImageRef(python) = %q, want %q", cfg.ImageRef(environment.RuntimePython), defaultImagePython)
+	}
+	if cfg.ImageRef(environment.RuntimeNode) != defaultImageNode {
+		t.Errorf("ImageRef(node) = %q, want %q", cfg.ImageRef(environment.RuntimeNode), defaultImageNode)
+	}
+	if cfg.ImageRef(environment.RuntimeShell) != defaultImageShell {
+		t.Errorf("ImageRef(shell) = %q, want %q", cfg.ImageRef(environment.RuntimeShell), defaultImageShell)
+	}
 }
 
 func TestValidate(t *testing.T) {
@@ -198,8 +207,8 @@ func TestImageRef(t *testing.T) {
 	if got := cfg.ImageRef(environment.RuntimePython); got != "myimage:latest" {
 		t.Errorf("ImageRef(python) = %q, want %q", got, "myimage:latest")
 	}
-	if got := cfg.ImageRef(environment.RuntimeNode); got != "" {
-		t.Errorf("ImageRef(node) = %q, want empty", got)
+	if got := cfg.ImageRef(environment.RuntimeNode); got != defaultImageNode {
+		t.Errorf("ImageRef(node) = %q, want %q", got, defaultImageNode)
 	}
 }
 
