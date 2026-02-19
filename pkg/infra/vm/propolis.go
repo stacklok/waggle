@@ -13,6 +13,7 @@ import (
 
 	"github.com/stacklok/propolis"
 	"github.com/stacklok/propolis/hooks"
+	"github.com/stacklok/propolis/hypervisor/libkrun"
 	propolisssh "github.com/stacklok/propolis/ssh"
 
 	"github.com/stacklok/waggle/pkg/domain/environment"
@@ -94,12 +95,14 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 		)
 	}
 
+	var backendOpts []libkrun.Option
 	if opts.RunnerPath != "" {
-		propolisOpts = append(propolisOpts, propolis.WithRunnerPath(opts.RunnerPath))
+		backendOpts = append(backendOpts, libkrun.WithRunnerPath(opts.RunnerPath))
 	}
 	if opts.LibDir != "" {
-		propolisOpts = append(propolisOpts, propolis.WithLibDir(opts.LibDir))
+		backendOpts = append(backendOpts, libkrun.WithLibDir(opts.LibDir))
 	}
+	propolisOpts = append(propolisOpts, propolis.WithBackend(libkrun.NewBackend(backendOpts...)))
 
 	// Start the VM.
 	vm, err := propolis.Run(ctx, opts.ImageRef, propolisOpts...)
@@ -117,7 +120,7 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 
 	slog.Info("microVM created successfully",
 		"env_id", env.ID,
-		"pid", vm.PID(),
+		"id", vm.ID(),
 	)
 
 	return &Handle{
