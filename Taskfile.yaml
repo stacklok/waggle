@@ -122,21 +122,21 @@ tasks:
   build-image-python:
     desc: Build Python runtime image
     cmds:
-      - docker build -t {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}} images/python/
+      - docker buildx build --load -t {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}} -t {{.IMAGE_REGISTRY}}/python:latest images/python/
     sources:
       - images/python/Dockerfile
 
   build-image-node:
     desc: Build Node.js runtime image
     cmds:
-      - docker build -t {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}} images/node/
+      - docker buildx build --load -t {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}} -t {{.IMAGE_REGISTRY}}/node:latest images/node/
     sources:
       - images/node/Dockerfile
 
   build-image-shell:
     desc: Build shell runtime image
     cmds:
-      - docker build -t {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}} images/shell/
+      - docker buildx build --load -t {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}} -t {{.IMAGE_REGISTRY}}/shell:latest images/shell/
     sources:
       - images/shell/Dockerfile
 

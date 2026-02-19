@@ -7,7 +7,9 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -39,13 +41,43 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := run(); err != nil {
+	logFile, err := parseFlags(os.Args[1:])
+	if err != nil {
+		slog.Error("failed to parse flags", "error", err)
+		os.Exit(2)
+	}
+
+	if err := run(logFile); err != nil {
 		slog.Error("fatal error", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func parseFlags(args []string) (string, error) {
+	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+
+	var logFile string
+	fs.StringVar(&logFile, "log-file", "", "write logs to file (append)")
+
+	if err := fs.Parse(args); err != nil {
+		return "", err
+	}
+
+	return logFile, nil
+}
+
+func run(logFile string) error {
+	closeLog, err := configureLogger(logFile)
+	if err != nil {
+		return fmt.Errorf("configure logger: %w", err)
+	}
+	defer func() {
+		if err := closeLog(); err != nil {
+			slog.Error("failed to close log file", "error", err)
+		}
+	}()
+
 	// Load and validate configuration.
 	cfg := config.LoadFromEnv()
 	if err := cfg.Validate(); err != nil {
@@ -142,4 +174,21 @@ func run() error {
 
 	slog.Info("waggle stopped")
 	return nil
+}
+
+func configureLogger(logFile string) (func() error, error) {
+	if logFile == "" {
+		return func() error { return nil }, nil
+	}
+
+	// #nosec G304 -- log file path is user-provided by design.
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open log file %s: %w", logFile, err)
+	}
+
+	handler := slog.NewTextHandler(io.MultiWriter(os.Stderr, f), nil)
+	slog.SetDefault(slog.New(handler))
+
+	return f.Close, nil
 }
