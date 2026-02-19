@@ -188,6 +188,8 @@ You can use your own OCI images as long as they include:
 - GNU coreutils (waggle's SSH executor requires `base64 -d`)
 - GNU findutils (waggle's file listing requires `find -printf`)
 
+See [docs/CUSTOM_IMAGES.md](docs/CUSTOM_IMAGES.md) for a full checklist and troubleshooting tips.
+
 Runtime command selection order:
 
 1) Config overrides via `WAGGLE_RUNTIME_*` env vars
