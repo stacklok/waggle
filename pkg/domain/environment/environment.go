@@ -46,6 +46,9 @@ type Environment struct {
 	CreatedAt time.Time
 	LastUsed  time.Time
 	Timeout   time.Duration
+
+	Capabilities         Capabilities
+	CapabilitiesDetected bool
 }
 
 // New creates a new Environment in the Creating state.

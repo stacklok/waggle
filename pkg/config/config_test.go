@@ -44,6 +44,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.ImageRef(environment.RuntimeShell) != defaultImageShell {
 		t.Errorf("ImageRef(shell) = %q, want %q", cfg.ImageRef(environment.RuntimeShell), defaultImageShell)
 	}
+	if len(cfg.RuntimeCommands) != 0 {
+		t.Errorf("RuntimeCommands = %v, want empty", cfg.RuntimeCommands)
+	}
 }
 
 func TestValidate(t *testing.T) {
@@ -138,6 +141,8 @@ func TestLoadFromEnv(t *testing.T) {
 	t.Setenv("WAGGLE_LIB_DIR", "/usr/lib")
 	t.Setenv("WAGGLE_REAPER_INTERVAL", "2m")
 	t.Setenv("WAGGLE_IMAGE_PYTHON", "ghcr.io/stacklok/waggle-python:latest")
+	t.Setenv("WAGGLE_RUNTIME_PYTHON_EXEC_COMMAND", "/usr/bin/python")
+	t.Setenv("WAGGLE_RUNTIME_PYTHON_INSTALL_COMMAND", "/usr/bin/pip install")
 
 	cfg := LoadFromEnv()
 
@@ -180,6 +185,12 @@ func TestLoadFromEnv(t *testing.T) {
 	want := "ghcr.io/stacklok/waggle-python:latest"
 	if cfg.ImageRef(environment.RuntimePython) != want {
 		t.Errorf("ImageRef(python) = %q, want %q", cfg.ImageRef(environment.RuntimePython), want)
+	}
+	if cfg.RuntimeExecCommand(environment.RuntimePython) != "/usr/bin/python" {
+		t.Errorf("RuntimeExecCommand(python) = %q, want %q", cfg.RuntimeExecCommand(environment.RuntimePython), "/usr/bin/python")
+	}
+	if cfg.RuntimeInstallCommand(environment.RuntimePython) != "/usr/bin/pip install" {
+		t.Errorf("RuntimeInstallCommand(python) = %q, want %q", cfg.RuntimeInstallCommand(environment.RuntimePython), "/usr/bin/pip install")
 	}
 }
 

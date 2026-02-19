@@ -54,7 +54,7 @@ func setupFSTest(t *testing.T) (*FilesystemService, *fakeFS, string) {
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 	cfg := testConfig()
 
-	envSvc := NewEnvironmentService(repo, provider, portAlloc, cfg)
+	envSvc := NewEnvironmentService(repo, provider, portAlloc, nil, cfg)
 
 	env, err := envSvc.Create(ctx, environment.RuntimePython, "fs-test", 30)
 	if err != nil {

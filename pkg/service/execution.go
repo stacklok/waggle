@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/stacklok/waggle/pkg/config"
@@ -17,6 +18,15 @@ import (
 
 // maxCodeSize is the maximum allowed size for code payloads (500 KB).
 const maxCodeSize = 512_000
+
+const (
+	defaultPythonCommand = "python3"
+	defaultPipInstall    = "pip install"
+	defaultNodeCommand   = "node"
+	defaultNpmInstall    = "npm install -g"
+	defaultShellCommand  = "sh"
+	defaultShellInstall  = "apk add --no-cache"
+)
 
 // ExecutionService orchestrates code execution within environments.
 type ExecutionService struct {
@@ -76,6 +86,8 @@ func (s *ExecutionService) Execute(
 		rt = parsed
 	}
 
+	s.ensureCapabilities(ctx, env)
+
 	// Resolve timeout.
 	timeout := s.config.DefaultExecTimeout
 	if timeoutSec > 0 {
@@ -95,7 +107,7 @@ func (s *ExecutionService) Execute(
 		Language:      rt.String(),
 		Code:          code,
 		TimeoutMs:     timeout.Milliseconds(),
-		ExecCommand:   rt.ExecCommand(),
+		ExecCommand:   s.resolveExecCommand(env, rt),
 		FileExtension: rt.FileExtension(),
 	}
 
@@ -122,6 +134,8 @@ func (s *ExecutionService) InstallPackages(
 		return &execution.ExecResult{ExitCode: 0}, nil
 	}
 
+	s.ensureCapabilities(ctx, env)
+
 	// Validate each package name against the allowlist before passing to the executor.
 	validatedNames := make([]string, 0, len(packages))
 	for _, pkg := range packages {
@@ -141,10 +155,207 @@ func (s *ExecutionService) InstallPackages(
 	req := &execution.PackageInstallation{
 		Language:       env.Runtime.String(),
 		Packages:       validatedNames,
-		InstallCommand: env.Runtime.PackageInstallCommand(),
+		InstallCommand: s.resolveInstallCommand(env),
 	}
 
 	return s.executor.InstallPackages(ctx, envID, conn, req)
+}
+
+func (s *ExecutionService) resolveExecCommand(env *environment.Environment, rt environment.Runtime) string {
+	if s.config != nil {
+		if cmd := s.config.RuntimeExecCommand(rt); cmd != "" {
+			if isSafePathCommand(cmd) {
+				return cmd
+			}
+			slog.Warn("ignoring unsafe runtime exec command override", "runtime", rt, "command", cmd)
+		}
+	}
+
+	if env.CapabilitiesDetected {
+		switch rt {
+		case environment.RuntimePython:
+			if env.Capabilities.PythonCommand != "" {
+				if isSafePathCommand(env.Capabilities.PythonCommand) {
+					return env.Capabilities.PythonCommand
+				}
+				slog.Warn("ignoring unsafe probed python command", "runtime", rt, "command", env.Capabilities.PythonCommand)
+			}
+		case environment.RuntimeNode:
+			if env.Capabilities.NodeCommand != "" {
+				if isSafePathCommand(env.Capabilities.NodeCommand) {
+					return env.Capabilities.NodeCommand
+				}
+				slog.Warn("ignoring unsafe probed node command", "runtime", rt, "command", env.Capabilities.NodeCommand)
+			}
+		case environment.RuntimeShell:
+		}
+	}
+
+	if cmd := fallbackExecCommand(rt); cmd != "" {
+		return cmd
+	}
+
+	return rt.ExecCommand()
+}
+
+func (s *ExecutionService) resolveInstallCommand(env *environment.Environment) string {
+	if s.config != nil {
+		if cmd := s.config.RuntimeInstallCommand(env.Runtime); cmd != "" {
+			if isSafeInstallCommand(cmd) {
+				return cmd
+			}
+			slog.Warn("ignoring unsafe runtime install command override", "runtime", env.Runtime, "command", cmd)
+		}
+	}
+
+	if cmd := installCommandFromCapabilities(env); cmd != "" {
+		return cmd
+	}
+
+	if cmd := fallbackInstallCommand(env.Runtime); cmd != "" {
+		return cmd
+	}
+
+	return env.Runtime.PackageInstallCommand()
+}
+
+func (s *ExecutionService) ensureCapabilities(ctx context.Context, env *environment.Environment) {
+	if s.envSvc == nil {
+		return
+	}
+	if err := s.envSvc.EnsureCapabilities(ctx, env); err != nil {
+		slog.Warn("capability probe failed", "env_id", env.ID, "error", err)
+	}
+}
+
+func installCommandFromCapabilities(env *environment.Environment) string {
+	if !env.CapabilitiesDetected {
+		return ""
+	}
+
+	switch env.Runtime {
+	case environment.RuntimePython:
+		return pythonInstallCommand(env)
+	case environment.RuntimeNode:
+		return nodeInstallCommand(env)
+	case environment.RuntimeShell:
+		return shellInstallCommand(env)
+	default:
+		return ""
+	}
+}
+
+func pythonInstallCommand(env *environment.Environment) string {
+	if env.Capabilities.PipCommand == "" {
+		return ""
+	}
+	if !isSafePathCommand(env.Capabilities.PipCommand) {
+		slog.Warn("ignoring unsafe probed pip command", "runtime", env.Runtime, "command", env.Capabilities.PipCommand)
+		return ""
+	}
+	return fmt.Sprintf("%s install", env.Capabilities.PipCommand)
+}
+
+func nodeInstallCommand(env *environment.Environment) string {
+	if env.Capabilities.NpmCommand == "" {
+		return ""
+	}
+	if !isSafePathCommand(env.Capabilities.NpmCommand) {
+		slog.Warn("ignoring unsafe probed npm command", "runtime", env.Runtime, "command", env.Capabilities.NpmCommand)
+		return ""
+	}
+	return fmt.Sprintf("%s install -g", env.Capabilities.NpmCommand)
+}
+
+func shellInstallCommand(env *environment.Environment) string {
+	if env.Capabilities.HasApk {
+		return "apk add --no-cache"
+	}
+	if env.Capabilities.HasAptGet {
+		return "apt-get update && apt-get install -y"
+	}
+	if env.Capabilities.HasDnf {
+		return "dnf install -y"
+	}
+	if env.Capabilities.HasYum {
+		return "yum install -y"
+	}
+	if env.Capabilities.HasZypper {
+		return "zypper -n install"
+	}
+	return ""
+}
+
+func fallbackExecCommand(rt environment.Runtime) string {
+	switch rt {
+	case environment.RuntimePython:
+		return defaultPythonCommand
+	case environment.RuntimeNode:
+		return defaultNodeCommand
+	case environment.RuntimeShell:
+		return defaultShellCommand
+	default:
+		return ""
+	}
+}
+
+func fallbackInstallCommand(rt environment.Runtime) string {
+	switch rt {
+	case environment.RuntimePython:
+		return defaultPipInstall
+	case environment.RuntimeNode:
+		return defaultNpmInstall
+	case environment.RuntimeShell:
+		return defaultShellInstall
+	default:
+		return ""
+	}
+}
+
+func isSafePathCommand(cmd string) bool {
+	if cmd == "" {
+		return false
+	}
+	if !strings.HasPrefix(cmd, "/") {
+		return false
+	}
+	for _, r := range cmd {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '/', r == '.', r == '-', r == '_':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func isSafeInstallCommand(cmd string) bool {
+	if cmd == "" {
+		return false
+	}
+	parts := strings.Fields(cmd)
+	if len(parts) == 0 {
+		return false
+	}
+	if !isSafePathCommand(parts[0]) {
+		return false
+	}
+	for _, part := range parts[1:] {
+		for _, r := range part {
+			switch {
+			case r >= 'a' && r <= 'z':
+			case r >= 'A' && r <= 'Z':
+			case r >= '0' && r <= '9':
+			case r == '/', r == '.', r == '-', r == '_', r == '=':
+			default:
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // connInfo resolves pre-validated SSH connection info for an environment.

@@ -29,7 +29,7 @@ type CodeExecution struct {
 	// TimeoutMs is the execution timeout in milliseconds. Zero means no timeout.
 	TimeoutMs int64
 
-	// ExecCommand is the runtime command used to execute the temp file (e.g., "python3").
+	// ExecCommand is the runtime command used to execute the temp file (e.g., "/opt/waggle-venv/bin/python").
 	// Resolved by the service layer from the environment's runtime.
 	ExecCommand string
 
@@ -46,7 +46,7 @@ type PackageInstallation struct {
 	// Packages is the list of package names to install.
 	Packages []string
 
-	// InstallCommand is the package manager install command (e.g., "pip install").
+	// InstallCommand is the package manager install command (e.g., "/opt/waggle-venv/bin/pip install").
 	// Resolved by the service layer from the environment's runtime.
 	InstallCommand string
 }

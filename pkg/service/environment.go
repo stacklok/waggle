@@ -19,6 +19,11 @@ import (
 const (
 	// MaxTimeoutMinutes is the maximum allowed inactivity timeout for an environment.
 	MaxTimeoutMinutes = 60
+
+	probeTimeout = 30 * time.Second
+
+	capabilityMaxAge = 10 * time.Minute
+	probeRetryCount  = 3
 )
 
 // EnvironmentService orchestrates environment lifecycle operations.
@@ -26,6 +31,7 @@ type EnvironmentService struct {
 	repo      environment.Repository
 	provider  vm.Provider
 	portAlloc *vm.PortAllocator
+	prober    EnvironmentProber
 	config    *config.Config
 }
 
@@ -34,12 +40,14 @@ func NewEnvironmentService(
 	repo environment.Repository,
 	provider vm.Provider,
 	portAlloc *vm.PortAllocator,
+	prober EnvironmentProber,
 	cfg *config.Config,
 ) *EnvironmentService {
 	return &EnvironmentService{
 		repo:      repo,
 		provider:  provider,
 		portAlloc: portAlloc,
+		prober:    prober,
 		config:    cfg,
 	}
 }
@@ -139,6 +147,8 @@ func (s *EnvironmentService) Create(
 		return nil, fmt.Errorf("save running state: %w", err)
 	}
 
+	go s.probeCapabilitiesWithRetry(context.Background(), env.ID, env.SSHPort, probeRetryCount)
+
 	slog.Info("environment ready",
 		"id", env.ID,
 		"name", env.Name,
@@ -180,6 +190,99 @@ func (s *EnvironmentService) Destroy(ctx context.Context, envID string) error {
 	}
 
 	return nil
+}
+
+// EnsureCapabilities probes the environment if capabilities are missing or stale.
+func (s *EnvironmentService) EnsureCapabilities(ctx context.Context, env *environment.Environment) error {
+	if s.prober == nil {
+		return nil
+	}
+	if !capabilitiesStale(env) {
+		return nil
+	}
+	keyPath := s.provider.SSHKeyPath(env.ID)
+	if keyPath == "" {
+		return fmt.Errorf("capability probe skipped: missing SSH key for %s", env.ID)
+	}
+
+	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+
+	caps, err := s.prober.Probe(probeCtx, "127.0.0.1", env.SSHPort, keyPath)
+	if err != nil {
+		return err
+	}
+
+	env.Capabilities = caps
+	env.CapabilitiesDetected = true
+	return s.repo.Save(ctx, env)
+}
+
+func (s *EnvironmentService) probeCapabilitiesWithRetry(
+	ctx context.Context, envID string, sshPort uint16, attempts int,
+) {
+	if s.prober == nil {
+		return
+	}
+	if attempts < 1 {
+		attempts = 1
+	}
+	for i := 0; i < attempts; i++ {
+		if ctx.Err() != nil {
+			return
+		}
+		caps, err := s.probeCapabilitiesOnce(ctx, envID, sshPort)
+		if err == nil {
+			if saveErr := s.storeCapabilities(ctx, envID, caps); saveErr == nil {
+				return
+			}
+		}
+		if i < attempts-1 {
+			timer := time.NewTimer(500 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
+		}
+	}
+	slog.Warn("capability probe failed after retries", "env_id", envID)
+}
+
+func (s *EnvironmentService) probeCapabilitiesOnce(
+	ctx context.Context, envID string, sshPort uint16,
+) (environment.Capabilities, error) {
+	keyPath := s.provider.SSHKeyPath(envID)
+	if keyPath == "" {
+		return environment.Capabilities{}, fmt.Errorf("capability probe skipped: missing SSH key for %s", envID)
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+
+	return s.prober.Probe(probeCtx, "127.0.0.1", sshPort, keyPath)
+}
+
+func (s *EnvironmentService) storeCapabilities(
+	ctx context.Context, envID string, caps environment.Capabilities,
+) error {
+	env, err := s.repo.FindByID(ctx, envID)
+	if err != nil {
+		return err
+	}
+	env.Capabilities = caps
+	env.CapabilitiesDetected = true
+	return s.repo.Save(ctx, env)
+}
+
+func capabilitiesStale(env *environment.Environment) bool {
+	if !env.CapabilitiesDetected {
+		return true
+	}
+	if env.Capabilities.DetectedAt.IsZero() {
+		return true
+	}
+	return time.Since(env.Capabilities.DetectedAt) > capabilityMaxAge
 }
 
 // List returns all active environments.

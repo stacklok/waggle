@@ -73,7 +73,7 @@ func TestEnvironmentServiceCreate(t *testing.T) {
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil }) // skip real listen
 	cfg := testConfig()
 
-	svc := NewEnvironmentService(repo, provider, portAlloc, cfg)
+	svc := NewEnvironmentService(repo, provider, portAlloc, nil, cfg)
 
 	env, err := svc.Create(ctx, environment.RuntimePython, "test-env", 30)
 	if err != nil {
@@ -106,7 +106,7 @@ func TestEnvironmentServiceCreateAutoName(t *testing.T) {
 	portAlloc := vm.NewPortAllocator(20000, 20100)
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 
-	svc := NewEnvironmentService(repo, provider, portAlloc, testConfig())
+	svc := NewEnvironmentService(repo, provider, portAlloc, nil, testConfig())
 
 	env, err := svc.Create(ctx, environment.RuntimeNode, "", 0)
 	if err != nil {
@@ -126,7 +126,7 @@ func TestEnvironmentServiceCreateInvalidRuntime(t *testing.T) {
 	ctx := context.Background()
 
 	svc := NewEnvironmentService(store.NewMemoryStore(), newFakeProvider(),
-		vm.NewPortAllocator(20000, 20100), testConfig())
+		vm.NewPortAllocator(20000, 20100), nil, testConfig())
 
 	_, err := svc.Create(ctx, "ruby", "test", 30)
 	if !errors.Is(err, environment.ErrInvalidRuntime) {
@@ -141,7 +141,7 @@ func TestEnvironmentServiceCreateTimeoutTooLarge(t *testing.T) {
 	portAlloc := vm.NewPortAllocator(20000, 20100)
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 
-	svc := NewEnvironmentService(store.NewMemoryStore(), newFakeProvider(), portAlloc, testConfig())
+	svc := NewEnvironmentService(store.NewMemoryStore(), newFakeProvider(), portAlloc, nil, testConfig())
 
 	_, err := svc.Create(ctx, environment.RuntimePython, "test", MaxTimeoutMinutes+1)
 	if err == nil {
@@ -156,7 +156,7 @@ func TestEnvironmentServiceCreateTimeoutAtMax(t *testing.T) {
 	portAlloc := vm.NewPortAllocator(20000, 20100)
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 
-	svc := NewEnvironmentService(store.NewMemoryStore(), newFakeProvider(), portAlloc, testConfig())
+	svc := NewEnvironmentService(store.NewMemoryStore(), newFakeProvider(), portAlloc, nil, testConfig())
 
 	env, err := svc.Create(ctx, environment.RuntimePython, "test", MaxTimeoutMinutes)
 	if err != nil {
@@ -179,7 +179,7 @@ func TestEnvironmentServiceCreateMaxReached(t *testing.T) {
 	portAlloc := vm.NewPortAllocator(20000, 20100)
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 
-	svc := NewEnvironmentService(repo, provider, portAlloc, cfg)
+	svc := NewEnvironmentService(repo, provider, portAlloc, nil, cfg)
 
 	// Create first environment.
 	_, err := svc.Create(ctx, environment.RuntimePython, "first", 30)
@@ -204,7 +204,7 @@ func TestEnvironmentServiceCreateVMFailure(t *testing.T) {
 	portAlloc := vm.NewPortAllocator(20000, 20100)
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 
-	svc := NewEnvironmentService(store.NewMemoryStore(), provider, portAlloc, testConfig())
+	svc := NewEnvironmentService(store.NewMemoryStore(), provider, portAlloc, nil, testConfig())
 
 	_, err := svc.Create(ctx, environment.RuntimePython, "test", 30)
 	if err == nil {
@@ -226,7 +226,7 @@ func TestEnvironmentServiceDestroy(t *testing.T) {
 	portAlloc := vm.NewPortAllocator(20000, 20100)
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 
-	svc := NewEnvironmentService(repo, provider, portAlloc, testConfig())
+	svc := NewEnvironmentService(repo, provider, portAlloc, nil, testConfig())
 
 	env, err := svc.Create(ctx, environment.RuntimeShell, "to-destroy", 30)
 	if err != nil {
@@ -258,7 +258,7 @@ func TestEnvironmentServiceList(t *testing.T) {
 	portAlloc := vm.NewPortAllocator(20000, 20100)
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 
-	svc := NewEnvironmentService(repo, provider, portAlloc, testConfig())
+	svc := NewEnvironmentService(repo, provider, portAlloc, nil, testConfig())
 
 	_, _ = svc.Create(ctx, environment.RuntimePython, "env-1", 30)
 	_, _ = svc.Create(ctx, environment.RuntimeNode, "env-2", 30)
@@ -281,7 +281,7 @@ func TestEnvironmentServiceTouch(t *testing.T) {
 	portAlloc := vm.NewPortAllocator(20000, 20100)
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 
-	svc := NewEnvironmentService(repo, provider, portAlloc, testConfig())
+	svc := NewEnvironmentService(repo, provider, portAlloc, nil, testConfig())
 
 	env, _ := svc.Create(ctx, environment.RuntimePython, "touchable", 30)
 	originalLastUsed := env.LastUsed

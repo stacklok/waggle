@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stacklok/waggle/pkg/config"
 	"github.com/stacklok/waggle/pkg/domain/environment"
 	"github.com/stacklok/waggle/pkg/domain/execution"
 	"github.com/stacklok/waggle/pkg/infra/store"
@@ -51,15 +52,19 @@ func (f *fakeExecutor) InstallPackages(
 
 func setupExecTest(t *testing.T) (*ExecutionService, *fakeExecutor, string) {
 	t.Helper()
+	return setupExecTestWithConfig(t, testConfig())
+}
+
+func setupExecTestWithConfig(t *testing.T, cfg *config.Config) (*ExecutionService, *fakeExecutor, string) {
+	t.Helper()
 	ctx := context.Background()
 
 	repo := store.NewMemoryStore()
 	provider := newFakeProvider()
 	portAlloc := vm.NewPortAllocator(20000, 20100)
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
-	cfg := testConfig()
 
-	envSvc := NewEnvironmentService(repo, provider, portAlloc, cfg)
+	envSvc := NewEnvironmentService(repo, provider, portAlloc, nil, cfg)
 
 	env, err := envSvc.Create(ctx, environment.RuntimePython, "exec-test", 30)
 	if err != nil {
@@ -86,13 +91,13 @@ func TestExecutionServiceExecute(t *testing.T) {
 		t.Errorf("Stdout = %q, want %q", result.Stdout, "ok")
 	}
 
-	// Verify the request contains python3 exec command, .py extension, and user code.
+	// Verify the request contains python exec command, .py extension, and user code.
 	req := executor.lastCodeReq
 	if req == nil {
 		t.Fatal("ExecuteCode was not called")
 	}
-	if req.ExecCommand != "python3" {
-		t.Errorf("ExecCommand = %q, want %q", req.ExecCommand, "python3")
+	if req.ExecCommand != defaultPythonCommand {
+		t.Errorf("ExecCommand = %q, want %q", req.ExecCommand, defaultPythonCommand)
 	}
 	if req.FileExtension != ".py" {
 		t.Errorf("FileExtension = %q, want %q", req.FileExtension, ".py")
@@ -169,8 +174,8 @@ func TestExecutionServiceInstallPackages(t *testing.T) {
 	if req == nil {
 		t.Fatal("InstallPackages was not called")
 	}
-	if req.InstallCommand != "pip install" {
-		t.Errorf("InstallCommand = %q, want %q", req.InstallCommand, "pip install")
+	if req.InstallCommand != defaultPipInstall {
+		t.Errorf("InstallCommand = %q, want %q", req.InstallCommand, defaultPipInstall)
 	}
 	if len(req.Packages) != 2 || req.Packages[0] != "numpy" || req.Packages[1] != "pandas" {
 		t.Errorf("Packages = %v, want [numpy pandas]", req.Packages)
@@ -189,5 +194,105 @@ func TestExecutionServiceInstallPackagesEmpty(t *testing.T) {
 	}
 	if result.ExitCode != 0 {
 		t.Errorf("ExitCode = %d, want 0 for empty packages", result.ExitCode)
+	}
+}
+
+func TestExecutionServiceExecCommandOverride(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	cfg := testConfig()
+	cfg.RuntimeCommands = map[string]config.RuntimeCommandConfig{
+		"python": {ExecCommand: "/usr/bin/python"},
+	}
+
+	svc, executor, envID := setupExecTestWithConfig(t, cfg)
+
+	_, err := svc.Execute(ctx, envID, "print('hello')", "", 0)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	req := executor.lastCodeReq
+	if req == nil {
+		t.Fatal("ExecuteCode was not called")
+	}
+	if req.ExecCommand != "/usr/bin/python" {
+		t.Errorf("ExecCommand = %q, want %q", req.ExecCommand, "/usr/bin/python")
+	}
+}
+
+func TestExecutionServiceExecCommandOverrideUnsafe(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	cfg := testConfig()
+	cfg.RuntimeCommands = map[string]config.RuntimeCommandConfig{
+		"python": {ExecCommand: "python3; rm -rf /"},
+	}
+
+	svc, executor, envID := setupExecTestWithConfig(t, cfg)
+
+	_, err := svc.Execute(ctx, envID, "print('hello')", "", 0)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	req := executor.lastCodeReq
+	if req == nil {
+		t.Fatal("ExecuteCode was not called")
+	}
+	if req.ExecCommand != defaultPythonCommand {
+		t.Errorf("ExecCommand = %q, want %q", req.ExecCommand, defaultPythonCommand)
+	}
+}
+
+func TestExecutionServiceInstallCommandOverride(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	cfg := testConfig()
+	cfg.RuntimeCommands = map[string]config.RuntimeCommandConfig{
+		"python": {InstallCommand: "/usr/bin/pip3 install --no-cache-dir"},
+	}
+
+	svc, executor, envID := setupExecTestWithConfig(t, cfg)
+
+	_, err := svc.InstallPackages(ctx, envID, []string{"numpy"})
+	if err != nil {
+		t.Fatalf("InstallPackages: %v", err)
+	}
+
+	req := executor.lastPkgReq
+	if req == nil {
+		t.Fatal("InstallPackages was not called")
+	}
+	if req.InstallCommand != "/usr/bin/pip3 install --no-cache-dir" {
+		t.Errorf("InstallCommand = %q, want %q", req.InstallCommand, "/usr/bin/pip3 install --no-cache-dir")
+	}
+}
+
+func TestExecutionServiceInstallCommandOverrideUnsafe(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	cfg := testConfig()
+	cfg.RuntimeCommands = map[string]config.RuntimeCommandConfig{
+		"python": {InstallCommand: "pip install; rm -rf /"},
+	}
+
+	svc, executor, envID := setupExecTestWithConfig(t, cfg)
+
+	_, err := svc.InstallPackages(ctx, envID, []string{"numpy"})
+	if err != nil {
+		t.Fatalf("InstallPackages: %v", err)
+	}
+
+	req := executor.lastPkgReq
+	if req == nil {
+		t.Fatal("InstallPackages was not called")
+	}
+	if req.InstallCommand != defaultPipInstall {
+		t.Errorf("InstallCommand = %q, want %q", req.InstallCommand, defaultPipInstall)
 	}
 }

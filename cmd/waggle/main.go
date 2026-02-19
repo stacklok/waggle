@@ -98,9 +98,10 @@ func run(logFile string) error {
 	// Create domain adapters.
 	sshExecutor := ssh.NewExecutor()
 	sshFS := ssh.NewFileSystem()
+	sshProber := ssh.NewProber()
 
 	// Create application services.
-	envSvc := service.NewEnvironmentService(repo, provider, portAlloc, cfg)
+	envSvc := service.NewEnvironmentService(repo, provider, portAlloc, sshProber, cfg)
 	execSvc := service.NewExecutionService(repo, sshExecutor, provider, envSvc, cfg)
 	fsSvc := service.NewFilesystemService(repo, sshFS, provider, envSvc)
 

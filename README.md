@@ -143,6 +143,12 @@ All settings via `WAGGLE_*` environment variables:
 | `WAGGLE_IMAGE_PYTHON` | `ghcr.io/stacklok/waggle/python:latest` | OCI image for Python environments |
 | `WAGGLE_IMAGE_NODE` | `ghcr.io/stacklok/waggle/node:latest` | OCI image for Node.js environments |
 | `WAGGLE_IMAGE_SHELL` | `ghcr.io/stacklok/waggle/shell:latest` | OCI image for shell environments |
+| `WAGGLE_RUNTIME_PYTHON_EXEC_COMMAND` | *(unset)* | Override Python exec command (absolute path) |
+| `WAGGLE_RUNTIME_PYTHON_INSTALL_COMMAND` | *(unset)* | Override Python install command (absolute path + args) |
+| `WAGGLE_RUNTIME_NODE_EXEC_COMMAND` | *(unset)* | Override Node exec command (absolute path) |
+| `WAGGLE_RUNTIME_NODE_INSTALL_COMMAND` | *(unset)* | Override Node install command (absolute path + args) |
+| `WAGGLE_RUNTIME_SHELL_EXEC_COMMAND` | *(unset)* | Override shell exec command (absolute path) |
+| `WAGGLE_RUNTIME_SHELL_INSTALL_COMMAND` | *(unset)* | Override shell install command (absolute path + args) |
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full configuration reference and development guide.
 
@@ -181,6 +187,12 @@ You can use your own OCI images as long as they include:
 - The language runtime for the target environment (`python3`, `node`, etc.)
 - GNU coreutils (waggle's SSH executor requires `base64 -d`)
 - GNU findutils (waggle's file listing requires `find -printf`)
+
+Runtime command selection order:
+
+1) Config overrides via `WAGGLE_RUNTIME_*` env vars
+2) Probed commands inside the VM (if available)
+3) Built-in fallbacks (`python3`, `pip install`, `node`, `npm install -g`, `sh`, `apk add --no-cache`)
 
 No SSH server is needed — `waggle-init` is injected into the VM at boot time by propolis and handles all communication.
 

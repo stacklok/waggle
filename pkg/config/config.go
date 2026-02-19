@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/stacklok/waggle/pkg/domain/environment"
@@ -85,9 +86,18 @@ type Config struct {
 	// Images maps runtime names to OCI image references.
 	Images map[string]string
 
+	// RuntimeCommands optionally overrides exec/install commands per runtime.
+	RuntimeCommands map[string]RuntimeCommandConfig
+
 	// ReaperInterval is how often the background reaper checks for
 	// expired environments.
 	ReaperInterval time.Duration
+}
+
+// RuntimeCommandConfig configures runtime-specific exec/install commands.
+type RuntimeCommandConfig struct {
+	ExecCommand    string
+	InstallCommand string
 }
 
 // Default returns a Config with all default values.
@@ -105,6 +115,7 @@ func Default() *Config {
 		SSHPortMax:         defaultSSHPortMax,
 		DataDir:            defaultDataDir(),
 		Images:             defaultImages(),
+		RuntimeCommands:    map[string]RuntimeCommandConfig{},
 		ReaperInterval:     defaultReaperInterval,
 	}
 }
@@ -121,6 +132,19 @@ func LoadFromEnv() *Config {
 		key := EnvPrefix + "IMAGE_" + envKey(string(rt))
 		if v := os.Getenv(key); v != "" {
 			cfg.Images[string(rt)] = v
+		}
+
+		execKey := EnvPrefix + "RUNTIME_" + envKey(string(rt)) + "_EXEC_COMMAND"
+		installKey := EnvPrefix + "RUNTIME_" + envKey(string(rt)) + "_INSTALL_COMMAND"
+		cmd := cfg.RuntimeCommands[string(rt)]
+		if v := strings.TrimSpace(os.Getenv(execKey)); v != "" {
+			cmd.ExecCommand = v
+		}
+		if v := strings.TrimSpace(os.Getenv(installKey)); v != "" {
+			cmd.InstallCommand = v
+		}
+		if cmd.ExecCommand != "" || cmd.InstallCommand != "" {
+			cfg.RuntimeCommands[string(rt)] = cmd
 		}
 	}
 
@@ -215,6 +239,30 @@ func (c *Config) Validate() error {
 // or an empty string if none is configured.
 func (c *Config) ImageRef(rt environment.Runtime) string {
 	return c.Images[string(rt)]
+}
+
+// RuntimeExecCommand returns an override for the runtime exec command, if set.
+func (c *Config) RuntimeExecCommand(rt environment.Runtime) string {
+	if c == nil {
+		return ""
+	}
+	cmd, ok := c.RuntimeCommands[string(rt)]
+	if !ok {
+		return ""
+	}
+	return cmd.ExecCommand
+}
+
+// RuntimeInstallCommand returns an override for the runtime install command, if set.
+func (c *Config) RuntimeInstallCommand(rt environment.Runtime) string {
+	if c == nil {
+		return ""
+	}
+	cmd, ok := c.RuntimeCommands[string(rt)]
+	if !ok {
+		return ""
+	}
+	return cmd.InstallCommand
 }
 
 func defaultDataDir() string {

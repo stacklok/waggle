@@ -51,7 +51,7 @@ func (r Runtime) FileExtension() string {
 func (r Runtime) ExecCommand() string {
 	switch r {
 	case RuntimePython:
-		return "python3"
+		return "/opt/waggle-venv/bin/python"
 	case RuntimeNode:
 		return "node"
 	case RuntimeShell:
@@ -66,7 +66,7 @@ func (r Runtime) ExecCommand() string {
 func (r Runtime) PackageInstallCommand() string {
 	switch r {
 	case RuntimePython:
-		return "pip install"
+		return "/opt/waggle-venv/bin/pip install"
 	case RuntimeNode:
 		return "npm install -g"
 	case RuntimeShell:

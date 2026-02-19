@@ -69,7 +69,7 @@ func TestRuntimeExecCommand(t *testing.T) {
 		runtime Runtime
 		want    string
 	}{
-		{RuntimePython, "python3"},
+		{RuntimePython, "/opt/waggle-venv/bin/python"},
 		{RuntimeNode, "node"},
 		{RuntimeShell, "sh"},
 	}
@@ -91,7 +91,7 @@ func TestRuntimePackageInstallCommand(t *testing.T) {
 		runtime Runtime
 		want    string
 	}{
-		{RuntimePython, "pip install"},
+		{RuntimePython, "/opt/waggle-venv/bin/pip install"},
 		{RuntimeNode, "npm install -g"},
 		{RuntimeShell, "apk add --no-cache"},
 	}

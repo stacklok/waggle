@@ -69,7 +69,7 @@ func TestReaperDestroysExpiredEnvironments(t *testing.T) {
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 	cfg := testConfig()
 
-	envSvc := service.NewEnvironmentService(repo, provider, portAlloc, cfg)
+	envSvc := service.NewEnvironmentService(repo, provider, portAlloc, nil, cfg)
 
 	// Create an environment with a very short timeout.
 	env, err := envSvc.Create(ctx, environment.RuntimePython, "soon-expired", 1)
@@ -104,7 +104,7 @@ func TestReaperLeavesActiveEnvironments(t *testing.T) {
 	portAlloc.SetListenCheck(func(_ uint16) error { return nil })
 	cfg := testConfig()
 
-	envSvc := service.NewEnvironmentService(repo, provider, portAlloc, cfg)
+	envSvc := service.NewEnvironmentService(repo, provider, portAlloc, nil, cfg)
 
 	// Create an environment with a long timeout.
 	_, err := envSvc.Create(ctx, environment.RuntimePython, "still-active", 60)
@@ -131,7 +131,7 @@ func TestReaperStartStop(t *testing.T) {
 	portAlloc := vm.NewPortAllocator(30200, 30300)
 	cfg := testConfig()
 
-	envSvc := service.NewEnvironmentService(repo, provider, portAlloc, cfg)
+	envSvc := service.NewEnvironmentService(repo, provider, portAlloc, nil, cfg)
 
 	reaper := NewReaper(envSvc, repo, 10*time.Millisecond)
 
