@@ -181,6 +181,17 @@ task run
 
 The server binds to `127.0.0.1:8080` by default with the MCP endpoint at `/mcp`.
 
+## Build and Test
+
+Use the Taskfile targets for local verification:
+
+```bash
+task build
+task test
+task lint
+task verify
+```
+
 ## Custom Images
 
 See [docs/CUSTOM_IMAGES.md](docs/CUSTOM_IMAGES.md) for the checklist and troubleshooting tips when using your own runtime images.

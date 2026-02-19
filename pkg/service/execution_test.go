@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +21,10 @@ import (
 type fakeExecutor struct {
 	lastCodeReq *execution.CodeExecution
 	lastPkgReq  *execution.PackageInstallation
+	codeReqs    []*execution.CodeExecution
+	pkgReqs     []*execution.PackageInstallation
+	codeResults []*execution.ExecResult
+	pkgResults  []*execution.ExecResult
 	result      *execution.ExecResult
 	err         error
 }
@@ -28,8 +33,14 @@ func (f *fakeExecutor) ExecuteCode(
 	_ context.Context, _ string, _ execution.ConnInfo, req *execution.CodeExecution,
 ) (*execution.ExecResult, error) {
 	f.lastCodeReq = req
+	f.codeReqs = append(f.codeReqs, req)
 	if f.err != nil {
 		return nil, f.err
+	}
+	if len(f.codeResults) > 0 {
+		res := f.codeResults[0]
+		f.codeResults = f.codeResults[1:]
+		return res, nil
 	}
 	if f.result != nil {
 		return f.result, nil
@@ -41,8 +52,14 @@ func (f *fakeExecutor) InstallPackages(
 	_ context.Context, _ string, _ execution.ConnInfo, req *execution.PackageInstallation,
 ) (*execution.ExecResult, error) {
 	f.lastPkgReq = req
+	f.pkgReqs = append(f.pkgReqs, req)
 	if f.err != nil {
 		return nil, f.err
+	}
+	if len(f.pkgResults) > 0 {
+		res := f.pkgResults[0]
+		f.pkgResults = f.pkgResults[1:]
+		return res, nil
 	}
 	if f.result != nil {
 		return f.result, nil
@@ -179,6 +196,86 @@ func TestExecutionServiceInstallPackages(t *testing.T) {
 	}
 	if len(req.Packages) != 2 || req.Packages[0] != "numpy" || req.Packages[1] != "pandas" {
 		t.Errorf("Packages = %v, want [numpy pandas]", req.Packages)
+	}
+}
+
+func TestExecutionServiceInstallPackagesPep668Fallback(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	svc, executor, envID := setupExecTest(t)
+	executor.pkgResults = []*execution.ExecResult{
+		{ExitCode: 1, Stderr: "error: externally-managed-environment"},
+		{ExitCode: 0},
+	}
+	executor.codeResults = []*execution.ExecResult{{ExitCode: 0}}
+
+	result, err := svc.InstallPackages(ctx, envID, []string{"numpy"})
+	if err != nil {
+		t.Fatalf("InstallPackages: %v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Fatalf("ExitCode = %d, want 0", result.ExitCode)
+	}
+	if len(executor.pkgReqs) != 2 {
+		t.Fatalf("InstallPackages calls = %d, want 2", len(executor.pkgReqs))
+	}
+	if executor.pkgReqs[1].InstallCommand != defaultPythonVenv+"/bin/pip install" {
+		t.Errorf("InstallCommand = %q, want %q", executor.pkgReqs[1].InstallCommand, defaultPythonVenv+"/bin/pip install")
+	}
+	if len(executor.codeReqs) != 1 {
+		t.Fatalf("ExecuteCode calls = %d, want 1", len(executor.codeReqs))
+	}
+	if executor.codeReqs[0].ExecCommand != defaultShellCommand {
+		t.Errorf("ExecCommand = %q, want %q", executor.codeReqs[0].ExecCommand, defaultShellCommand)
+	}
+	if !strings.Contains(executor.codeReqs[0].Code, "-m venv "+defaultPythonVenv) {
+		t.Errorf("Code = %q, want venv creation", executor.codeReqs[0].Code)
+	}
+}
+
+func TestExecutionServiceInstallPackagesPep668FallbackUsesExplicitPython(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	svc, executor, envID := setupExecTest(t)
+	executor.pkgResults = []*execution.ExecResult{
+		{ExitCode: 1, Stderr: "error: externally-managed-environment"},
+		{ExitCode: 0},
+	}
+	executor.codeResults = []*execution.ExecResult{{ExitCode: 0}}
+
+	_, err := svc.InstallPackages(ctx, envID, []string{"numpy"})
+	if err != nil {
+		t.Fatalf("InstallPackages: %v", err)
+	}
+	if len(executor.codeReqs) != 1 {
+		t.Fatalf("ExecuteCode calls = %d, want 1", len(executor.codeReqs))
+	}
+	if !strings.HasPrefix(executor.codeReqs[0].Code, defaultPythonFallback+" -m venv ") {
+		t.Errorf("Code = %q, want python fallback", executor.codeReqs[0].Code)
+	}
+}
+
+func TestExecutionServiceInstallPackagesNoPepFallback(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	svc, executor, envID := setupExecTest(t)
+	executor.pkgResults = []*execution.ExecResult{{ExitCode: 1, Stderr: "no such package"}}
+
+	result, err := svc.InstallPackages(ctx, envID, []string{"numpy"})
+	if err != nil {
+		t.Fatalf("InstallPackages: %v", err)
+	}
+	if result.ExitCode != 1 {
+		t.Fatalf("ExitCode = %d, want 1", result.ExitCode)
+	}
+	if len(executor.pkgReqs) != 1 {
+		t.Fatalf("InstallPackages calls = %d, want 1", len(executor.pkgReqs))
+	}
+	if len(executor.codeReqs) != 0 {
+		t.Fatalf("ExecuteCode calls = %d, want 0", len(executor.codeReqs))
 	}
 }
 

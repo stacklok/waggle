@@ -20,12 +20,14 @@ import (
 const maxCodeSize = 512_000
 
 const (
-	defaultPythonCommand = "python3"
-	defaultPipInstall    = "pip install"
-	defaultNodeCommand   = "node"
-	defaultNpmInstall    = "npm install -g"
-	defaultShellCommand  = "sh"
-	defaultShellInstall  = "apk add --no-cache"
+	defaultPythonCommand  = "python3"
+	defaultPipInstall     = "pip install"
+	defaultNodeCommand    = "node"
+	defaultNpmInstall     = "npm install -g"
+	defaultShellCommand   = "sh"
+	defaultShellInstall   = "apk add --no-cache"
+	defaultPythonVenv     = "/home/sandbox/venv"
+	defaultPythonFallback = "/usr/bin/python3"
 )
 
 // ExecutionService orchestrates code execution within environments.
@@ -115,6 +117,7 @@ func (s *ExecutionService) Execute(
 }
 
 // InstallPackages installs language packages in the specified environment.
+// For Python, it retries inside a virtual environment if PEP 668 blocks installs.
 func (s *ExecutionService) InstallPackages(
 	ctx context.Context, envID string, packages []string,
 ) (*execution.ExecResult, error) {
@@ -136,17 +139,11 @@ func (s *ExecutionService) InstallPackages(
 
 	s.ensureCapabilities(ctx, env)
 
-	// Validate each package name against the allowlist before passing to the executor.
-	validatedNames := make([]string, 0, len(packages))
-	for _, pkg := range packages {
-		pn, err := execution.NewPackageName(pkg)
-		if err != nil {
-			return nil, fmt.Errorf("invalid package name: %w", err)
-		}
-		validatedNames = append(validatedNames, pn.String())
+	validatedNames, err := validatePackages(packages)
+	if err != nil {
+		return nil, err
 	}
 
-	// Resolve pre-validated connection info.
 	conn, connErr := s.connInfo(envID, env.SSHPort)
 	if connErr != nil {
 		return nil, connErr
@@ -158,7 +155,15 @@ func (s *ExecutionService) InstallPackages(
 		InstallCommand: s.resolveInstallCommand(env),
 	}
 
-	return s.executor.InstallPackages(ctx, envID, conn, req)
+	result, runErr := s.executor.InstallPackages(ctx, envID, conn, req)
+	if runErr != nil || result == nil || result.Succeeded() {
+		return result, runErr
+	}
+	if env.Runtime != environment.RuntimePython || !isPep668(result) {
+		return result, runErr
+	}
+
+	return s.retryPythonInstallInVenv(ctx, env, conn, validatedNames)
 }
 
 func (s *ExecutionService) resolveExecCommand(env *environment.Environment, rt environment.Runtime) string {
@@ -226,6 +231,72 @@ func (s *ExecutionService) ensureCapabilities(ctx context.Context, env *environm
 	if err := s.envSvc.EnsureCapabilities(ctx, env); err != nil {
 		slog.Warn("capability probe failed", "env_id", env.ID, "error", err)
 	}
+}
+
+func (s *ExecutionService) retryPythonInstallInVenv(
+	ctx context.Context,
+	env *environment.Environment,
+	conn execution.ConnInfo,
+	packages []string,
+) (*execution.ExecResult, error) {
+	pythonCmd := s.resolveExecCommand(env, environment.RuntimePython)
+	if pythonCmd == defaultPythonCommand {
+		pythonCmd = defaultPythonFallback
+	}
+	venvResult, venvErr := s.createPythonVenv(ctx, env.ID, conn, pythonCmd, defaultPythonVenv)
+	if venvErr != nil {
+		return venvResult, venvErr
+	}
+	if venvResult != nil && !venvResult.Succeeded() {
+		return venvResult, nil
+	}
+
+	venvInstall := &execution.PackageInstallation{
+		Language:       env.Runtime.String(),
+		Packages:       packages,
+		InstallCommand: fmt.Sprintf("%s/bin/pip install", defaultPythonVenv),
+	}
+
+	return s.executor.InstallPackages(ctx, env.ID, conn, venvInstall)
+}
+
+func validatePackages(packages []string) ([]string, error) {
+	validatedNames := make([]string, 0, len(packages))
+	for _, pkg := range packages {
+		pn, err := execution.NewPackageName(pkg)
+		if err != nil {
+			return nil, fmt.Errorf("invalid package name: %w", err)
+		}
+		validatedNames = append(validatedNames, pn.String())
+	}
+	return validatedNames, nil
+}
+
+func (s *ExecutionService) createPythonVenv(
+	ctx context.Context,
+	envID string,
+	conn execution.ConnInfo,
+	pythonCmd string,
+	venvPath string,
+) (*execution.ExecResult, error) {
+	setup := fmt.Sprintf("%s -m venv %s", pythonCmd, venvPath)
+	return s.executor.ExecuteCode(ctx, envID, conn, &execution.CodeExecution{
+		Language:      environment.RuntimeShell.String(),
+		Code:          setup,
+		TimeoutMs:     s.config.DefaultExecTimeout.Milliseconds(),
+		ExecCommand:   defaultShellCommand,
+		FileExtension: environment.RuntimeShell.FileExtension(),
+	})
+}
+
+func isPep668(result *execution.ExecResult) bool {
+	if result == nil || result.ExitCode == 0 {
+		return false
+	}
+	combined := strings.ToLower(result.Stdout + "\n" + result.Stderr)
+	return strings.Contains(combined, "externally-managed-environment") ||
+		strings.Contains(combined, "externally managed environment") ||
+		strings.Contains(combined, "pep 668")
 }
 
 func installCommandFromCapabilities(env *environment.Environment) string {
