@@ -181,6 +181,10 @@ task run
 
 The server binds to `127.0.0.1:8080` by default with the MCP endpoint at `/mcp`.
 
+## Custom Images
+
+See [docs/CUSTOM_IMAGES.md](docs/CUSTOM_IMAGES.md) for the checklist and troubleshooting tips when using your own runtime images.
+
 ## Testing with curl
 
 ```bash
