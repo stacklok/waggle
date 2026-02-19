@@ -178,11 +178,23 @@ func parseFindOutput(output string) ([]filesystem.FileInfo, error) {
 
 func listFilesCommand(path string) string {
 	encoded := base64.StdEncoding.EncodeToString([]byte(listFilesScript))
+	template := strings.Join([]string{
+		"if command -v base64 >/dev/null 2>&1; then ",
+		"printf '%%s' %s | base64 -d | sh -s -- %s %s; ",
+		"else cat <<'WAGGLE_EOF' | sh -s -- %s %s\n",
+		"%s\n",
+		"WAGGLE_EOF\n",
+		"fi",
+	}, "")
+
 	return fmt.Sprintf(
-		"printf '%%s' %s | base64 -d | sh -s -- %s %s",
+		template,
 		propolisssh.ShellEscape(encoded),
 		propolisssh.ShellEscape(path),
 		propolisssh.ShellEscape(listHeader),
+		propolisssh.ShellEscape(path),
+		propolisssh.ShellEscape(listHeader),
+		listFilesScript,
 	)
 }
 
