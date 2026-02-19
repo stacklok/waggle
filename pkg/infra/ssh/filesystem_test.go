@@ -13,32 +13,39 @@ func TestParseFindOutput(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		output string
-		want   []filesystem.FileInfo
+		name    string
+		output  string
+		want    []filesystem.FileInfo
+		wantErr bool
 	}{
 		{
-			name:   "empty output",
-			output: "",
+			name:    "empty output",
+			output:  "",
+			wantErr: true,
+		},
+		{
+			name:   "header only",
+			output: listHeader + "\n",
 			want:   nil,
 		},
 		{
 			name:   "single file",
-			output: "f|-rw-r--r--|1024|1700000000.000000|test.py\n",
+			output: listHeader + "\n" + "f|-rw-r--r--|1024|1700000000.000000|test.py\n",
 			want: []filesystem.FileInfo{
 				{Name: "test.py", Size: 1024, IsDir: false, Mode: "-rw-r--r--"},
 			},
 		},
 		{
 			name:   "directory",
-			output: "d|drwxr-xr-x|4096|1700000000.000000|src\n",
+			output: listHeader + "\n" + "d|drwxr-xr-x|4096|1700000000.000000|src\n",
 			want: []filesystem.FileInfo{
 				{Name: "src", Size: 4096, IsDir: true, Mode: "drwxr-xr-x"},
 			},
 		},
 		{
 			name: "multiple entries",
-			output: "f|-rw-r--r--|100|1700000000.000000|a.txt\n" +
+			output: listHeader + "\n" +
+				"f|-rw-r--r--|100|1700000000.000000|a.txt\n" +
 				"d|drwxr-xr-x|4096|1700000000.000000|subdir\n" +
 				"f|-rwxr-xr-x|2048|1700000000.000000|script.sh\n",
 			want: []filesystem.FileInfo{
@@ -49,9 +56,28 @@ func TestParseFindOutput(t *testing.T) {
 		},
 		{
 			name:   "malformed line is skipped",
-			output: "not|enough|fields\nf|-rw-r--r--|512|1700000000.000000|ok.txt\n",
+			output: listHeader + "\n" + "not|enough|fields\n" + "f|-rw-r--r--|512|1700000000.000000|ok.txt\n",
 			want: []filesystem.FileInfo{
 				{Name: "ok.txt", Size: 512, IsDir: false, Mode: "-rw-r--r--"},
+			},
+		},
+		{
+			name:    "missing header",
+			output:  "f|-rw-r--r--|1024|1700000000.000000|test.py\n",
+			wantErr: true,
+		},
+		{
+			name:   "invalid size and mtime",
+			output: listHeader + "\n" + "f|-rw-r--r--|bad|nope|bad.txt\n",
+			want: []filesystem.FileInfo{
+				{Name: "bad.txt", Size: 0, IsDir: false, Mode: "-rw-r--r--"},
+			},
+		},
+		{
+			name:   "windows newlines",
+			output: listHeader + "\r\n" + "f|-rw-r--r--|1024|1700000000.000000|test.py\r\n",
+			want: []filesystem.FileInfo{
+				{Name: "test.py", Size: 1024, IsDir: false, Mode: "-rw-r--r--"},
 			},
 		},
 	}
@@ -59,7 +85,16 @@ func TestParseFindOutput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := parseFindOutput(tt.output)
+			got, err := parseFindOutput(tt.output)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
 			if len(got) != len(tt.want) {
 				t.Fatalf("len = %d, want %d", len(got), len(tt.want))

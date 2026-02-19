@@ -44,3 +44,6 @@ export WAGGLE_RUNTIME_NODE_INSTALL_COMMAND="/usr/local/bin/npm install -g"
 - If `install_packages` fails, verify the package manager path and permissions.
 - If `execute` fails, verify the runtime binary exists at the resolved path.
 - If `list_files` is empty or errors, confirm `find -printf` is available.
+
+## Capabilities Data
+Waggle probes runtime capabilities (available binaries, package managers) to improve command resolution. This data is internal and not exposed over MCP by default. If we ever add an API for it, it will be redacted and opt-in to avoid leaking environment details.

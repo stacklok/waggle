@@ -6,6 +6,8 @@ package ssh
 import (
 	"bytes"
 	"context"
+	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -16,6 +18,11 @@ import (
 
 	"github.com/stacklok/waggle/pkg/domain/filesystem"
 )
+
+const listHeader = "WAGGLE_LIST_V1"
+
+//go:embed list_files.sh
+var listFilesScript string
 
 // FileSystem implements filesystem.FileSystem using SSH connections to microVMs.
 type FileSystem struct{}
@@ -102,28 +109,36 @@ func (*FileSystem) ListFiles(
 	ctx context.Context, conn filesystem.ConnInfo, path string,
 ) ([]filesystem.FileInfo, error) {
 	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
-
-	// Use stat-style output for reliable parsing.
-	// Format: type|perms|size|mtime_epoch|name
-	cmd := fmt.Sprintf(
-		`find %s -maxdepth 1 -mindepth 1 -printf '%%y|%%M|%%s|%%T@|%%f\n' 2>/dev/null || `+
-			`ls -la --time-style=+%%s %s 2>/dev/null`,
-		propolisssh.ShellEscape(path),
-		propolisssh.ShellEscape(path),
-	)
+	cmd := listFilesCommand(path)
 
 	output, runErr := client.Run(ctx, cmd)
 	if runErr != nil {
 		return nil, fmt.Errorf("list files %s: %w", path, runErr)
 	}
 
-	return parseFindOutput(output), nil
+	files, parseErr := parseFindOutput(output)
+	if parseErr != nil {
+		return nil, fmt.Errorf("parse list output: %w", parseErr)
+	}
+
+	return files, nil
 }
 
-// parseFindOutput parses the output of find -printf '%y|%M|%s|%T@|%f\n'.
-func parseFindOutput(output string) []filesystem.FileInfo {
+// parseFindOutput parses the output produced by listFilesCommand.
+func parseFindOutput(output string) ([]filesystem.FileInfo, error) {
+	trimmed := strings.TrimSpace(output)
+	if trimmed == "" {
+		return nil, fmt.Errorf("list output missing header")
+	}
+	lines := strings.Split(trimmed, "\n")
+	header := strings.TrimSuffix(lines[0], "\r")
+	if header != listHeader {
+		return nil, fmt.Errorf("unexpected list output header: %q", header)
+	}
+
 	var files []filesystem.FileInfo
-	for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
+	for i := 1; i < len(lines); i++ {
+		line := strings.TrimSuffix(lines[i], "\r")
 		if line == "" {
 			continue
 		}
@@ -158,7 +173,17 @@ func parseFindOutput(output string) []filesystem.FileInfo {
 			Modified: modified,
 		})
 	}
-	return files
+	return files, nil
+}
+
+func listFilesCommand(path string) string {
+	encoded := base64.StdEncoding.EncodeToString([]byte(listFilesScript))
+	return fmt.Sprintf(
+		"printf '%%s' %s | base64 -d | sh -s -- %s %s",
+		propolisssh.ShellEscape(encoded),
+		propolisssh.ShellEscape(path),
+		propolisssh.ShellEscape(listHeader),
+	)
 }
 
 // parentDir returns the parent directory of a path.
