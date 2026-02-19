@@ -257,6 +257,35 @@ func TestExecutionServiceInstallPackagesPep668FallbackUsesExplicitPython(t *test
 	}
 }
 
+func TestExecutionServiceInstallPackagesPersistsVenvCommands(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	svc, executor, envID := setupExecTest(t)
+	executor.pkgResults = []*execution.ExecResult{
+		{ExitCode: 1, Stderr: "error: externally-managed-environment"},
+		{ExitCode: 0},
+	}
+	executor.codeResults = []*execution.ExecResult{{ExitCode: 0}}
+
+	_, err := svc.InstallPackages(ctx, envID, []string{"numpy"})
+	if err != nil {
+		t.Fatalf("InstallPackages: %v", err)
+	}
+
+	_, err = svc.Execute(ctx, envID, "print('ok')", "", 0)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if executor.lastCodeReq == nil {
+		t.Fatal("ExecuteCode was not called")
+	}
+	if executor.lastCodeReq.ExecCommand != defaultPythonVenvExec {
+		t.Errorf("ExecCommand = %q, want %q", executor.lastCodeReq.ExecCommand, defaultPythonVenvExec)
+	}
+}
+
 func TestExecutionServiceInstallPackagesNoPepFallback(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

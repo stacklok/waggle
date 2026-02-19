@@ -28,6 +28,8 @@ const (
 	defaultShellInstall   = "apk add --no-cache"
 	defaultPythonVenv     = "/home/sandbox/venv"
 	defaultPythonFallback = "/usr/bin/python3"
+	defaultPythonVenvExec = "/home/sandbox/venv/bin/python"
+	defaultPythonVenvPip  = "/home/sandbox/venv/bin/pip"
 )
 
 // ExecutionService orchestrates code execution within environments.
@@ -251,10 +253,14 @@ func (s *ExecutionService) retryPythonInstallInVenv(
 		return venvResult, nil
 	}
 
+	if updateErr := s.persistPythonVenvCommands(ctx, env.ID); updateErr != nil {
+		slog.Warn("failed to persist python venv commands", "env_id", env.ID, "error", updateErr)
+	}
+
 	venvInstall := &execution.PackageInstallation{
 		Language:       env.Runtime.String(),
 		Packages:       packages,
-		InstallCommand: fmt.Sprintf("%s/bin/pip install", defaultPythonVenv),
+		InstallCommand: fmt.Sprintf("%s install", defaultPythonVenvPip),
 	}
 
 	return s.executor.InstallPackages(ctx, env.ID, conn, venvInstall)
@@ -287,6 +293,18 @@ func (s *ExecutionService) createPythonVenv(
 		ExecCommand:   defaultShellCommand,
 		FileExtension: environment.RuntimeShell.FileExtension(),
 	})
+}
+
+func (s *ExecutionService) persistPythonVenvCommands(ctx context.Context, envID string) error {
+	env, err := s.repo.FindByID(ctx, envID)
+	if err != nil {
+		return err
+	}
+	env.Capabilities.PythonCommand = defaultPythonVenvExec
+	env.Capabilities.PipCommand = defaultPythonVenvPip
+	env.Capabilities.DetectedAt = time.Now()
+	env.CapabilitiesDetected = true
+	return s.repo.Save(ctx, env)
 }
 
 func isPep668(result *execution.ExecResult) bool {

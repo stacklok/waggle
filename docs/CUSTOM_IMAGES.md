@@ -45,6 +45,7 @@ export WAGGLE_RUNTIME_NODE_INSTALL_COMMAND="/usr/local/bin/npm install -g"
 - If `execute` fails, verify the runtime binary exists at the resolved path.
 - If `list_files` is empty or errors, confirm `find -printf` is available.
 - For Python, `install_packages` will retry in a venv when PEP 668 blocks system installs.
+  Subsequent `execute` calls will use the venv interpreter automatically.
 
 ## Capabilities Data
 Waggle probes runtime capabilities (available binaries, package managers) to improve command resolution. This data is internal and not exposed over MCP by default. If we ever add an API for it, it will be redacted and opt-in to avoid leaking environment details.
