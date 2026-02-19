@@ -22,10 +22,11 @@ vars:
     -X main.buildDate={{.BUILD_DATE}}
 
 # Quick reference:
-#   task build   → Build waggle binary
-#   task test    → Run tests with race detector
-#   task lint    → Run linter
-#   task verify  → fmt + lint + test
+#   task build     → Build waggle binary
+#   task build-dev → Build waggle + propolis-runner
+#   task test      → Run tests with race detector
+#   task lint      → Run linter
+#   task verify    → fmt + lint + test
 
 tasks:
   default:
@@ -35,6 +36,7 @@ tasks:
 
   build:
     desc: Build the waggle binary
+    deps: [build-init]
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - CGO_ENABLED=0 go build -ldflags "{{.LDFLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
@@ -45,17 +47,26 @@ tasks:
     generates:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
+  build-dev:
+    desc: Build waggle + propolis-runner (requires libkrun-devel)
+    platforms: [linux]
+    cmds:
+      - task: build
+      - mkdir -p {{.BUILD_DIR}}
+      - cd ../propolis && CGO_ENABLED=1 go build -o "$OLDPWD/{{.BUILD_DIR}}/propolis-runner" ./runner/cmd/propolis-runner
+
   build-init:
     desc: Build the waggle-init binary (guest VM init)
     cmds:
-      - mkdir -p {{.BUILD_DIR}}
-      - CGO_ENABLED=0 GOOS=linux go build -ldflags "{{.LDFLAGS}}" -o {{.BUILD_DIR}}/waggle-init ./cmd/waggle-init
+      - mkdir -p pkg/infra/vm/initbin
+      - CGO_ENABLED=0 GOOS=linux go build -ldflags "{{.LDFLAGS}}" -o pkg/infra/vm/initbin/waggle-init ./cmd/waggle-init
     sources:
       - cmd/waggle-init/**/*.go
+      - pkg/infra/vm/initbin/embed.go
       - go.mod
       - go.sum
     generates:
-      - '{{.BUILD_DIR}}/waggle-init'
+      - pkg/infra/vm/initbin/waggle-init
 
   build-all:
     desc: Build all binaries
@@ -63,6 +74,7 @@ tasks:
 
   test:
     desc: Run unit tests with race detector
+    deps: [build-init]
     cmds:
       - go test -v -race ./...
 
@@ -75,6 +87,7 @@ tasks:
 
   lint:
     desc: Run linter
+    deps: [build-init]
     cmds:
       - golangci-lint run ./...
 
@@ -118,6 +131,7 @@ tasks:
     cmds:
       - rm -rf {{.BUILD_DIR}}/
       - rm -f coverage.out coverage.html
+      - rm -f pkg/infra/vm/initbin/waggle-init
 
   build-image-python:
     desc: Build Python runtime image

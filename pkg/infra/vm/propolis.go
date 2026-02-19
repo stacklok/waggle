@@ -66,6 +66,19 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 		"ssh_port", env.SSHPort,
 	)
 
+	rootfsHooks := []propolis.RootFSHook{
+		hooks.InjectAuthorizedKeys(pubKeyContent, hooks.WithKeyUser("/home/sandbox", 1000, 1000)),
+	}
+	if opts.InitPath != "" {
+		hook, err := initInjector(opts.InitPath)
+		if err != nil {
+			return nil, err
+		}
+		rootfsHooks = append(rootfsHooks, hook)
+	} else {
+		rootfsHooks = append(rootfsHooks, InjectInitBinary())
+	}
+
 	// Build propolis options.
 	propolisOpts := []propolis.Option{
 		propolis.WithName("waggle-" + env.ID),
@@ -77,22 +90,12 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 		}),
 		propolis.WithDataDir(envDataDir),
 
-		// Inject SSH authorized_keys into the rootfs before boot.
-		propolis.WithRootFSHook(hooks.InjectAuthorizedKeys(pubKeyContent, hooks.WithKeyUser("/home/sandbox", 1000, 1000))),
+		// Inject SSH authorized_keys and waggle-init into the rootfs before boot.
+		propolis.WithRootFSHook(rootfsHooks...),
+		propolis.WithInitOverride("/waggle-init"),
 
 		// Wait for SSH to become ready after boot.
 		propolis.WithPostBoot(sshReadyWaiter(env.SSHPort, privateKeyPath)),
-	}
-
-	if opts.InitPath != "" {
-		hook, err := initInjector(opts.InitPath)
-		if err != nil {
-			return nil, err
-		}
-		propolisOpts = append(propolisOpts,
-			propolis.WithRootFSHook(hook),
-			propolis.WithInitOverride("/waggle-init"),
-		)
 	}
 
 	var backendOpts []libkrun.Option

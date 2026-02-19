@@ -4,6 +4,7 @@ bin/
 coverage.out
 coverage.html
 .task/
+pkg/infra/vm/initbin/waggle-init
 
 # IDE
 .idea/
