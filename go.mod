@@ -8,7 +8,7 @@ go 1.25.7
 require (
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.44.0
-	github.com/stacklok/propolis v0.0.0
+	github.com/stacklok/propolis v0.0.1
 )
 
 require (
