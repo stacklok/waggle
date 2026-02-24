@@ -27,7 +27,7 @@ Run a single test: `go test -v -race -run TestName ./pkg/path/to/package`
 
 ## Things That Will Bite You
 
-- **propolis is a local replace**: `go.mod` uses `replace github.com/stacklok/propolis => ../propolis`. The propolis repo must be checked out as a sibling directory.
+- **propolis is a tagged dependency (v0.0.5)**: Fetched via normal Go module resolution. `build-dev` builds propolis-runner from the module cache (requires `libkrun-devel`). The `extract.Source` API is available for embedded runtime distribution.
 - **MCP error handling has two paths**: Return `mcp.NewToolResultError("msg"), nil` for user-facing errors (bad input, not found). Return `nil, err` only for internal server failures. Mixing these up breaks the MCP protocol.
 - **Code execution uses temp files, not `-c`**: Multi-line code is written to `/tmp/waggle_<uuid>.<ext>` in the VM via heredoc, executed, then cleaned up. Using `python3 -c` or `node -e` breaks on complex code.
 - **Shell escaping is mandatory**: Always use `propolis/ssh.ShellEscape()` for any user-provided string passed to SSH commands. Missing this is a command injection vulnerability.

@@ -83,6 +83,10 @@ type Config struct {
 	// LibDir is an optional path to the libkrun library directory.
 	LibDir string
 
+	// CacheDir is the directory for extracted runtime bundles.
+	// Defaults to DataDir when empty.
+	CacheDir string
+
 	// Images maps runtime names to OCI image references.
 	Images map[string]string
 
@@ -167,6 +171,9 @@ func loadEnvStrings(cfg *Config) {
 	}
 	if v := os.Getenv(EnvPrefix + "LIB_DIR"); v != "" {
 		cfg.LibDir = v
+	}
+	if v := os.Getenv(EnvPrefix + "CACHE_DIR"); v != "" {
+		cfg.CacheDir = filepath.Clean(v)
 	}
 }
 

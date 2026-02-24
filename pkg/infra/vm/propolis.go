@@ -99,11 +99,26 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 	}
 
 	var backendOpts []libkrun.Option
-	if opts.RunnerPath != "" {
-		backendOpts = append(backendOpts, libkrun.WithRunnerPath(opts.RunnerPath))
+	if opts.RuntimeSource != nil {
+		// Source-based: mutually exclusive with RunnerPath/LibDir.
+		backendOpts = append(backendOpts, libkrun.WithRuntime(opts.RuntimeSource))
+	} else {
+		if opts.RunnerPath != "" {
+			backendOpts = append(backendOpts, libkrun.WithRunnerPath(opts.RunnerPath))
+		}
+		if opts.LibDir != "" {
+			backendOpts = append(backendOpts, libkrun.WithLibDir(opts.LibDir))
+		}
 	}
-	if opts.LibDir != "" {
-		backendOpts = append(backendOpts, libkrun.WithLibDir(opts.LibDir))
+	if opts.FirmwareSource != nil {
+		backendOpts = append(backendOpts, libkrun.WithFirmware(opts.FirmwareSource))
+	}
+	cacheDir := opts.CacheDir
+	if cacheDir == "" {
+		cacheDir = opts.DataDir
+	}
+	if opts.RuntimeSource != nil || opts.FirmwareSource != nil {
+		backendOpts = append(backendOpts, libkrun.WithCacheDir(cacheDir))
 	}
 	propolisOpts = append(propolisOpts, propolis.WithBackend(libkrun.NewBackend(backendOpts...)))
 

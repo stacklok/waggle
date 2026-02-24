@@ -53,7 +53,7 @@ tasks:
     cmds:
       - task: build
       - mkdir -p {{.BUILD_DIR}}
-      - cd ../propolis && CGO_ENABLED=1 go build -o "$OLDPWD/{{.BUILD_DIR}}/propolis-runner" ./runner/cmd/propolis-runner
+      - CGO_ENABLED=1 go build -o {{.BUILD_DIR}}/propolis-runner github.com/stacklok/propolis/runner/cmd/propolis-runner
 
   build-init:
     desc: Build the waggle-init binary (guest VM init)

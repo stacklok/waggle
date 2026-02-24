@@ -182,7 +182,7 @@ func configureLogger(logFile string) (func() error, error) {
 		return func() error { return nil }, nil
 	}
 
-	// #nosec G304 -- log file path is user-provided by design.
+	// #nosec G304 G703 -- log file path is operator-configured, not external input.
 	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open log file %s: %w", logFile, err)

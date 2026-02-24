@@ -50,6 +50,7 @@ func (h *Handler) HandleReadyz(w http.ResponseWriter, r *http.Request) {
 		if err := c.Check(r.Context()); err != nil {
 			checks[c.Name()] = err.Error()
 			healthy = false
+			//nolint:gosec // G706: checker name and error are internal, not user input.
 			slog.Warn("readiness check failed", "checker", c.Name(), "error", err)
 		} else {
 			checks[c.Name()] = "ok"

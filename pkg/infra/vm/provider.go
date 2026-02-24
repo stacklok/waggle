@@ -6,6 +6,8 @@ package vm
 import (
 	"context"
 
+	"github.com/stacklok/propolis/extract"
+
 	"github.com/stacklok/waggle/pkg/domain/environment"
 )
 
@@ -26,6 +28,17 @@ type CreateVMOpts struct {
 
 	// LibDir is an optional path to the libkrun library directory.
 	LibDir string
+
+	// RuntimeSource provides propolis-runner and libkrun via extraction.
+	// Mutually exclusive with RunnerPath and LibDir.
+	RuntimeSource extract.Source
+
+	// FirmwareSource provides libkrunfw via extraction.
+	FirmwareSource extract.Source
+
+	// CacheDir is the directory for extract.Source cache. Required when
+	// using bundle-based sources. Defaults to DataDir if empty.
+	CacheDir string
 }
 
 // Handle holds the runtime state for a running VM, including

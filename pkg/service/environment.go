@@ -124,6 +124,7 @@ func (s *EnvironmentService) Create(
 		RunnerPath: s.config.RunnerPath,
 		InitPath:   s.config.InitPath,
 		LibDir:     s.config.LibDir,
+		CacheDir:   s.config.CacheDir,
 	})
 	if vmErr != nil {
 		// Transition to error state.

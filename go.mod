@@ -8,7 +8,7 @@ go 1.25.7
 require (
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.44.0
-	github.com/stacklok/propolis v0.0.0
+	github.com/stacklok/propolis v0.0.5
 )
 
 require (
@@ -75,5 +75,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gvisor.dev/gvisor v0.0.0-20240916094835-a174eb65023f // indirect
 )
-
-replace github.com/stacklok/propolis => ../propolis
