@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/stacklok/propolis"
+	"github.com/stacklok/propolis/extract"
 	"github.com/stacklok/propolis/hooks"
 	"github.com/stacklok/propolis/hypervisor/libkrun"
 	propolisssh "github.com/stacklok/propolis/ssh"
@@ -30,13 +31,36 @@ type PropolisProvider struct {
 	mu sync.RWMutex
 	// vms maps environment ID to the running VM entry.
 	vms map[string]*vmEntry
+
+	// runtimeSource optionally provides propolis-runner and libkrun via extraction.
+	runtimeSource extract.Source
+
+	// firmwareSource optionally provides libkrunfw via extraction.
+	firmwareSource extract.Source
+}
+
+// ProviderOption configures a PropolisProvider.
+type ProviderOption func(*PropolisProvider)
+
+// WithRuntimeSource sets an extract.Source providing propolis-runner and libkrun.
+func WithRuntimeSource(src extract.Source) ProviderOption {
+	return func(p *PropolisProvider) { p.runtimeSource = src }
+}
+
+// WithFirmwareSource sets an extract.Source providing libkrunfw.
+func WithFirmwareSource(src extract.Source) ProviderOption {
+	return func(p *PropolisProvider) { p.firmwareSource = src }
 }
 
 // NewPropolisProvider creates a new PropolisProvider.
-func NewPropolisProvider() *PropolisProvider {
-	return &PropolisProvider{
+func NewPropolisProvider(opts ...ProviderOption) *PropolisProvider {
+	p := &PropolisProvider{
 		vms: make(map[string]*vmEntry),
 	}
+	for _, o := range opts {
+		o(p)
+	}
+	return p
 }
 
 // CreateVM provisions a new microVM for the given environment.
@@ -98,29 +122,9 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 		propolis.WithPostBoot(sshReadyWaiter(env.SSHPort, privateKeyPath)),
 	}
 
-	var backendOpts []libkrun.Option
-	if opts.RuntimeSource != nil {
-		// Source-based: mutually exclusive with RunnerPath/LibDir.
-		backendOpts = append(backendOpts, libkrun.WithRuntime(opts.RuntimeSource))
-	} else {
-		if opts.RunnerPath != "" {
-			backendOpts = append(backendOpts, libkrun.WithRunnerPath(opts.RunnerPath))
-		}
-		if opts.LibDir != "" {
-			backendOpts = append(backendOpts, libkrun.WithLibDir(opts.LibDir))
-		}
-	}
-	if opts.FirmwareSource != nil {
-		backendOpts = append(backendOpts, libkrun.WithFirmware(opts.FirmwareSource))
-	}
-	cacheDir := opts.CacheDir
-	if cacheDir == "" {
-		cacheDir = opts.DataDir
-	}
-	if opts.RuntimeSource != nil || opts.FirmwareSource != nil {
-		backendOpts = append(backendOpts, libkrun.WithCacheDir(cacheDir))
-	}
-	propolisOpts = append(propolisOpts, propolis.WithBackend(libkrun.NewBackend(backendOpts...)))
+	propolisOpts = append(propolisOpts, propolis.WithBackend(
+		libkrun.NewBackend(p.buildBackendOpts(opts)...),
+	))
 
 	// Start the VM.
 	vm, err := propolis.Run(ctx, opts.ImageRef, propolisOpts...)
@@ -189,6 +193,43 @@ func (p *PropolisProvider) SSHKeyPath(envID string) string {
 		return ""
 	}
 	return entry.sshKeyPath
+}
+
+// buildBackendOpts constructs libkrun backend options, merging provider-level
+// sources with per-call opts.
+func (p *PropolisProvider) buildBackendOpts(opts CreateVMOpts) []libkrun.Option {
+	runtimeSrc := opts.RuntimeSource
+	if runtimeSrc == nil {
+		runtimeSrc = p.runtimeSource
+	}
+	firmwareSrc := opts.FirmwareSource
+	if firmwareSrc == nil {
+		firmwareSrc = p.firmwareSource
+	}
+
+	var out []libkrun.Option
+	if runtimeSrc != nil {
+		// Source-based: mutually exclusive with RunnerPath/LibDir.
+		out = append(out, libkrun.WithRuntime(runtimeSrc))
+	} else {
+		if opts.RunnerPath != "" {
+			out = append(out, libkrun.WithRunnerPath(opts.RunnerPath))
+		}
+		if opts.LibDir != "" {
+			out = append(out, libkrun.WithLibDir(opts.LibDir))
+		}
+	}
+	if firmwareSrc != nil {
+		out = append(out, libkrun.WithFirmware(firmwareSrc))
+	}
+	cacheDir := opts.CacheDir
+	if cacheDir == "" {
+		cacheDir = opts.DataDir
+	}
+	if runtimeSrc != nil || firmwareSrc != nil {
+		out = append(out, libkrun.WithCacheDir(cacheDir))
+	}
+	return out
 }
 
 // initInjector reads the waggle-init binary from disk and returns a

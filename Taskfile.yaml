@@ -16,17 +16,31 @@ vars:
     sh: git rev-parse --short HEAD 2>/dev/null || echo "unknown"
   BUILD_DATE:
     sh: date -u +"%Y-%m-%dT%H:%M:%SZ"
+  PROPOLIS_VERSION:
+    sh: go list -m -f '{{.Version}}' github.com/stacklok/propolis
+  HOST_ARCH:
+    sh: uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'
+  HOST_OS:
+    sh: uname -s | tr '[:upper:]' '[:lower:]'
   LDFLAGS: >-
     -X main.version={{.VERSION}}
     -X main.commit={{.COMMIT}}
     -X main.buildDate={{.BUILD_DATE}}
+  LDFLAGS_EMBED: >-
+    -X main.version={{.VERSION}}
+    -X main.commit={{.COMMIT}}
+    -X main.buildDate={{.BUILD_DATE}}
+    -X github.com/stacklok/waggle/pkg/infra/vm/runtimebin.Version={{.PROPOLIS_VERSION}}
 
 # Quick reference:
-#   task build     → Build waggle binary
-#   task build-dev → Build waggle + propolis-runner
-#   task test      → Run tests with race detector
-#   task lint      → Run linter
-#   task verify    → fmt + lint + test
+#   task build            → Build waggle binary (pure Go, no CGO)
+#   task build-dev        → Build self-contained waggle with embedded propolis runtime
+#   task build-dev-system → Build waggle + propolis-runner from system libkrun
+#   task fetch-runtime    → Download pre-built propolis runtime from GitHub Release
+#   task fetch-firmware   → Download pre-built propolis firmware from GitHub Release
+#   task test             → Run tests with race detector
+#   task lint             → Run linter
+#   task verify           → fmt + lint + test
 
 tasks:
   default:
@@ -48,12 +62,73 @@ tasks:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
   build-dev:
-    desc: Build waggle + propolis-runner (requires libkrun-devel)
+    desc: Build self-contained waggle with embedded propolis runtime
+    platforms: [linux]
+    deps: [build-init, fetch-runtime, fetch-firmware]
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -tags embed_runtime -ldflags "{{.LDFLAGS_EMBED}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
+
+  build-dev-darwin:
+    desc: Build self-contained waggle with embedded propolis runtime (macOS)
+    platforms: [darwin]
+    deps: [build-init, fetch-runtime, fetch-firmware]
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -tags embed_runtime -ldflags "{{.LDFLAGS_EMBED}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
+
+  build-dev-system:
+    desc: Build waggle + propolis-runner from system libkrun (requires libkrun-devel)
     platforms: [linux]
     cmds:
       - task: build
       - mkdir -p {{.BUILD_DIR}}
       - CGO_ENABLED=1 go build -o {{.BUILD_DIR}}/propolis-runner github.com/stacklok/propolis/runner/cmd/propolis-runner
+
+  build-dev-system-darwin:
+    desc: Build waggle + propolis-runner from system libkrun (macOS, requires Homebrew libkrun)
+    platforms: [darwin]
+    cmds:
+      - task: build
+      - mkdir -p {{.BUILD_DIR}}
+      - CGO_ENABLED=1 go build -o {{.BUILD_DIR}}/propolis-runner github.com/stacklok/propolis/runner/cmd/propolis-runner
+      - codesign --entitlements assets/entitlements.plist --force -s - {{.BUILD_DIR}}/propolis-runner
+
+  fetch-runtime:
+    desc: Download pre-built propolis runtime from GitHub Release
+    status:
+      - test -f pkg/infra/vm/runtimebin/propolis-runner
+    cmds:
+      - mkdir -p pkg/infra/vm/runtimebin
+      - >-
+        gh release download {{.PROPOLIS_VERSION}}
+        --repo stacklok/propolis
+        --pattern "propolis-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz"
+        --dir pkg/infra/vm/runtimebin/ --clobber
+      - >-
+        tar -xzf pkg/infra/vm/runtimebin/propolis-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
+        -C pkg/infra/vm/runtimebin/ --strip-components=1
+      - rm -f pkg/infra/vm/runtimebin/propolis-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
+
+  fetch-firmware:
+    desc: Download pre-built propolis firmware from GitHub Release
+    status:
+      - ls pkg/infra/vm/runtimebin/libkrunfw.* >/dev/null 2>&1
+    cmds:
+      - mkdir -p pkg/infra/vm/runtimebin
+      - >-
+        gh release download {{.PROPOLIS_VERSION}}
+        --repo stacklok/propolis
+        --pattern "propolis-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz"
+        --dir pkg/infra/vm/runtimebin/ --clobber
+      - >-
+        tar -xzf pkg/infra/vm/runtimebin/propolis-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
+        -C pkg/infra/vm/runtimebin/ --strip-components=1
+      - rm -f pkg/infra/vm/runtimebin/propolis-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
 
   build-init:
     desc: Build the waggle-init binary (guest VM init)
@@ -132,6 +207,10 @@ tasks:
       - rm -rf {{.BUILD_DIR}}/
       - rm -f coverage.out coverage.html
       - rm -f pkg/infra/vm/initbin/waggle-init
+      - rm -f pkg/infra/vm/runtimebin/propolis-runner
+      - rm -f pkg/infra/vm/runtimebin/libkrun.so.1 pkg/infra/vm/runtimebin/libkrun.dylib
+      - rm -f pkg/infra/vm/runtimebin/libkrunfw.so.5 pkg/infra/vm/runtimebin/libkrunfw.dylib
+      - rm -f pkg/infra/vm/runtimebin/VERSION pkg/infra/vm/runtimebin/LICENSE-GPL
 
   build-image-python:
     desc: Build Python runtime image

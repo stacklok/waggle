@@ -14,9 +14,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
+	"github.com/adrg/xdg"
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/stacklok/waggle/pkg/cleanup"
@@ -25,6 +27,7 @@ import (
 	"github.com/stacklok/waggle/pkg/infra/ssh"
 	"github.com/stacklok/waggle/pkg/infra/store"
 	"github.com/stacklok/waggle/pkg/infra/vm"
+	"github.com/stacklok/waggle/pkg/infra/vm/runtimebin"
 	wagmcp "github.com/stacklok/waggle/pkg/mcp"
 	"github.com/stacklok/waggle/pkg/service"
 )
@@ -92,7 +95,21 @@ func run(logFile string) error {
 
 	// Create infrastructure components.
 	repo := store.NewMemoryStore()
-	provider := vm.NewPropolisProvider()
+
+	// Wire VM provider options (embedded runtime when available).
+	var providerOpts []vm.ProviderOption
+	if runtimebin.Available() {
+		if cfg.CacheDir == "" {
+			cfg.CacheDir = runtimeCacheDir()
+		}
+		providerOpts = append(providerOpts,
+			vm.WithRuntimeSource(runtimebin.RuntimeSource()),
+			vm.WithFirmwareSource(runtimebin.FirmwareSource()),
+		)
+		slog.Info("using embedded propolis runtime", "version", runtimebin.Version)
+	}
+
+	provider := vm.NewPropolisProvider(providerOpts...)
 	portAlloc := vm.NewPortAllocator(cfg.SSHPortBase, cfg.SSHPortMax)
 
 	// Create domain adapters.
@@ -175,6 +192,12 @@ func run(logFile string) error {
 
 	slog.Info("waggle stopped")
 	return nil
+}
+
+// runtimeCacheDir returns the directory used for extracting embedded runtime
+// binaries, under the XDG cache directory (e.g. ~/.cache/waggle/runtime/).
+func runtimeCacheDir() string {
+	return filepath.Join(xdg.CacheHome, "waggle", "runtime")
 }
 
 func configureLogger(logFile string) (func() error, error) {

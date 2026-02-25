@@ -5,6 +5,11 @@ coverage.out
 coverage.html
 .task/
 pkg/infra/vm/initbin/waggle-init
+pkg/infra/vm/runtimebin/propolis-runner
+pkg/infra/vm/runtimebin/libkrun.*
+pkg/infra/vm/runtimebin/libkrunfw.*
+pkg/infra/vm/runtimebin/VERSION
+pkg/infra/vm/runtimebin/LICENSE-GPL
 
 # IDE
 .idea/

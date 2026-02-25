@@ -7,7 +7,166 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stacklok/propolis/extract"
 )
+
+func TestNewPropolisProvider(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no options", func(t *testing.T) {
+		t.Parallel()
+		p := NewPropolisProvider()
+		if p.vms == nil {
+			t.Fatal("vms map should be initialized")
+		}
+		if p.runtimeSource != nil {
+			t.Error("runtimeSource should be nil without option")
+		}
+		if p.firmwareSource != nil {
+			t.Error("firmwareSource should be nil without option")
+		}
+	})
+
+	t.Run("with runtime and firmware sources", func(t *testing.T) {
+		t.Parallel()
+		rtSrc := extract.Dir(t.TempDir())
+		fwSrc := extract.Dir(t.TempDir())
+		p := NewPropolisProvider(
+			WithRuntimeSource(rtSrc),
+			WithFirmwareSource(fwSrc),
+		)
+		if p.runtimeSource == nil {
+			t.Error("runtimeSource should be set")
+		}
+		if p.firmwareSource == nil {
+			t.Error("firmwareSource should be set")
+		}
+	})
+}
+
+// TestBuildBackendOpts verifies the merging logic in buildBackendOpts.
+// Since libkrun.Option is an opaque func type, we assert on option count
+// to verify which branches were taken. Each configuration produces a
+// unique count.
+func TestBuildBackendOpts(t *testing.T) {
+	t.Parallel()
+
+	rtSrc := extract.Dir(t.TempDir())
+	fwSrc := extract.Dir(t.TempDir())
+	altSrc := extract.Dir(t.TempDir())
+
+	tests := []struct {
+		name      string
+		provider  *PropolisProvider
+		opts      CreateVMOpts
+		wantCount int
+	}{
+		{
+			name:      "no sources no paths",
+			provider:  NewPropolisProvider(),
+			opts:      CreateVMOpts{DataDir: "/tmp"},
+			wantCount: 0,
+		},
+		{
+			name:     "runner path only",
+			provider: NewPropolisProvider(),
+			opts: CreateVMOpts{
+				RunnerPath: "/usr/bin/propolis-runner",
+				DataDir:    "/tmp",
+			},
+			wantCount: 1,
+		},
+		{
+			name:     "runner path and lib dir",
+			provider: NewPropolisProvider(),
+			opts: CreateVMOpts{
+				RunnerPath: "/usr/bin/propolis-runner",
+				LibDir:     "/usr/lib",
+				DataDir:    "/tmp",
+			},
+			wantCount: 2,
+		},
+		{
+			name:     "provider runtime source only",
+			provider: NewPropolisProvider(WithRuntimeSource(rtSrc)),
+			opts:     CreateVMOpts{DataDir: "/tmp"},
+			// WithRuntime + WithCacheDir = 2
+			wantCount: 2,
+		},
+		{
+			name:     "provider firmware source only",
+			provider: NewPropolisProvider(WithFirmwareSource(fwSrc)),
+			opts:     CreateVMOpts{DataDir: "/tmp"},
+			// WithFirmware + WithCacheDir = 2
+			wantCount: 2,
+		},
+		{
+			name: "provider both sources",
+			provider: NewPropolisProvider(
+				WithRuntimeSource(rtSrc),
+				WithFirmwareSource(fwSrc),
+			),
+			opts: CreateVMOpts{DataDir: "/tmp"},
+			// WithRuntime + WithFirmware + WithCacheDir = 3
+			wantCount: 3,
+		},
+		{
+			name:     "runtime source suppresses runner path and lib dir",
+			provider: NewPropolisProvider(WithRuntimeSource(rtSrc)),
+			opts: CreateVMOpts{
+				RunnerPath: "/usr/bin/propolis-runner",
+				LibDir:     "/usr/lib",
+				DataDir:    "/tmp",
+			},
+			// WithRuntime + WithCacheDir = 2 (RunnerPath/LibDir ignored)
+			wantCount: 2,
+		},
+		{
+			name:     "per-call runtime source overrides provider",
+			provider: NewPropolisProvider(WithRuntimeSource(rtSrc)),
+			opts: CreateVMOpts{
+				RuntimeSource: altSrc,
+				DataDir:       "/tmp",
+			},
+			// WithRuntime(altSrc) + WithCacheDir = 2
+			wantCount: 2,
+		},
+		{
+			name:     "per-call firmware source overrides provider",
+			provider: NewPropolisProvider(WithFirmwareSource(fwSrc)),
+			opts: CreateVMOpts{
+				FirmwareSource: altSrc,
+				DataDir:        "/tmp",
+			},
+			// WithFirmware(altSrc) + WithCacheDir = 2
+			wantCount: 2,
+		},
+		{
+			name: "explicit cache dir used over data dir",
+			provider: NewPropolisProvider(
+				WithRuntimeSource(rtSrc),
+				WithFirmwareSource(fwSrc),
+			),
+			opts: CreateVMOpts{
+				DataDir:  "/tmp/data",
+				CacheDir: "/tmp/cache",
+			},
+			// WithRuntime + WithFirmware + WithCacheDir = 3
+			wantCount: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.provider.buildBackendOpts(tt.opts)
+			if len(got) != tt.wantCount {
+				t.Errorf("buildBackendOpts returned %d options, want %d", len(got), tt.wantCount)
+			}
+		})
+	}
+}
 
 func TestInitInjector(t *testing.T) {
 	t.Parallel()
