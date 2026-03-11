@@ -17,7 +17,7 @@ vars:
   BUILD_DATE:
     sh: date -u +"%Y-%m-%dT%H:%M:%SZ"
   PROPOLIS_VERSION:
-    sh: go list -m -f '{{.Version}}' github.com/stacklok/propolis
+    sh: go list -m github.com/stacklok/propolis | awk '{print $2}'
   HOST_ARCH:
     sh: uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'
   HOST_OS:
@@ -35,8 +35,7 @@ vars:
     -X github.com/stacklok/waggle/pkg/infra/vm/runtimebin.Version={{.PROPOLIS_VERSION}}
 
 # Quick reference:
-#   task build            → Build waggle binary (pure Go, no CGO)
-#   task build-dev        → Build self-contained waggle with embedded propolis runtime
+#   task build            → Build self-contained waggle with embedded propolis runtime
 #   task build-dev-system → Build waggle + propolis-runner from system libkrun
 #   task fetch-runtime    → Download pre-built propolis runtime from GitHub Release
 #   task fetch-firmware   → Download pre-built propolis firmware from GitHub Release
@@ -51,37 +50,19 @@ tasks:
       - task --list
 
   build:
-    desc: Build the waggle binary
-    deps: [build-init]
+    desc: Build self-contained waggle with embedded propolis runtime
+    deps: [build-init, fetch-runtime, fetch-firmware]
+    env:
+      CGO_ENABLED: "0"
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - CGO_ENABLED=0 go build -ldflags "{{.LDFLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
+      - go build -tags embed_runtime -ldflags "{{.LDFLAGS_EMBED}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
     sources:
       - ./**/*.go
       - go.mod
       - go.sum
     generates:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
-
-  build-dev:
-    desc: Build self-contained waggle with embedded propolis runtime
-    platforms: [linux]
-    deps: [build-init, fetch-runtime, fetch-firmware]
-    env:
-      CGO_ENABLED: "0"
-    cmds:
-      - mkdir -p {{.BUILD_DIR}}
-      - go build -tags embed_runtime -ldflags "{{.LDFLAGS_EMBED}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
-
-  build-dev-darwin:
-    desc: Build self-contained waggle with embedded propolis runtime (macOS)
-    platforms: [darwin]
-    deps: [build-init, fetch-runtime, fetch-firmware]
-    env:
-      CGO_ENABLED: "0"
-    cmds:
-      - mkdir -p {{.BUILD_DIR}}
-      - go build -tags embed_runtime -ldflags "{{.LDFLAGS_EMBED}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
 
   build-dev-system:
     desc: Build waggle + propolis-runner from system libkrun (requires libkrun-devel)
