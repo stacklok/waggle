@@ -22,6 +22,8 @@ vars:
     sh: uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'
   HOST_OS:
     sh: uname -s | tr '[:upper:]' '[:lower:]'
+  CONTAINER_ENGINE:
+    sh: echo ${CONTAINER_ENGINE:-$(command -v docker >/dev/null 2>&1 && echo docker || echo podman)}
   LDFLAGS: >-
     -X main.version={{.VERSION}}
     -X main.commit={{.COMMIT}}
@@ -226,8 +228,9 @@ tasks:
 
   build-image-base:
     desc: Build base runtime image (shared Alpine layer)
+    run: once
     cmds:
-      - docker buildx build --load -t {{.IMAGE_REGISTRY}}/base:{{.IMAGE_TAG}} -t {{.IMAGE_REGISTRY}}/base:latest images/base/
+      - "{{.CONTAINER_ENGINE}} build -t {{.IMAGE_REGISTRY}}/base:{{.IMAGE_TAG}} -t {{.IMAGE_REGISTRY}}/base:latest images/base/"
     sources:
       - images/base/Dockerfile
 
@@ -236,7 +239,7 @@ tasks:
     deps: [build-image-base]
     cmds:
       - >-
-        docker buildx build --load
+        {{.CONTAINER_ENGINE}} build
         --build-arg BASE_IMAGE={{.IMAGE_REGISTRY}}/base:latest
         -t {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}}
         -t {{.IMAGE_REGISTRY}}/python:latest images/python/
@@ -249,7 +252,7 @@ tasks:
     deps: [build-image-base]
     cmds:
       - >-
-        docker buildx build --load
+        {{.CONTAINER_ENGINE}} build
         --build-arg BASE_IMAGE={{.IMAGE_REGISTRY}}/base:latest
         -t {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}}
         -t {{.IMAGE_REGISTRY}}/node:latest images/node/
@@ -262,7 +265,7 @@ tasks:
     deps: [build-image-base]
     cmds:
       - >-
-        docker buildx build --load
+        {{.CONTAINER_ENGINE}} build
         --build-arg BASE_IMAGE={{.IMAGE_REGISTRY}}/base:latest
         -t {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}}
         -t {{.IMAGE_REGISTRY}}/shell:latest images/shell/
@@ -278,10 +281,10 @@ tasks:
     desc: Push all runtime images to registry
     deps: [build-images]
     cmds:
-      - docker push {{.IMAGE_REGISTRY}}/base:{{.IMAGE_TAG}}
-      - docker push {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}}
-      - docker push {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}}
-      - docker push {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}}
+      - "{{.CONTAINER_ENGINE}} push {{.IMAGE_REGISTRY}}/base:{{.IMAGE_TAG}}"
+      - "{{.CONTAINER_ENGINE}} push {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}}"
+      - "{{.CONTAINER_ENGINE}} push {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}}"
+      - "{{.CONTAINER_ENGINE}} push {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}}"
 
   run:
     desc: Build and run the server
