@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright 2025 Stacklok, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-ARG BASE_IMAGE=ghcr.io/stacklok/waggle/base:latest
-FROM ${BASE_IMAGE}
+FROM alpine:3.21
+
+RUN apk add --no-cache coreutils findutils

@@ -224,25 +224,50 @@ tasks:
       - rm -f pkg/infra/vm/runtimebin/libkrunfw.so.5 pkg/infra/vm/runtimebin/libkrunfw.5.dylib
       - rm -f pkg/infra/vm/runtimebin/VERSION pkg/infra/vm/runtimebin/LICENSE-GPL
 
+  build-image-base:
+    desc: Build base runtime image (shared Alpine layer)
+    cmds:
+      - docker buildx build --load -t {{.IMAGE_REGISTRY}}/base:{{.IMAGE_TAG}} -t {{.IMAGE_REGISTRY}}/base:latest images/base/
+    sources:
+      - images/base/Dockerfile
+
   build-image-python:
     desc: Build Python runtime image
+    deps: [build-image-base]
     cmds:
-      - docker buildx build --load -t {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}} -t {{.IMAGE_REGISTRY}}/python:latest images/python/
+      - >-
+        docker buildx build --load
+        --build-arg BASE_IMAGE={{.IMAGE_REGISTRY}}/base:latest
+        -t {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}}
+        -t {{.IMAGE_REGISTRY}}/python:latest images/python/
     sources:
+      - images/base/Dockerfile
       - images/python/Dockerfile
 
   build-image-node:
     desc: Build Node.js runtime image
+    deps: [build-image-base]
     cmds:
-      - docker buildx build --load -t {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}} -t {{.IMAGE_REGISTRY}}/node:latest images/node/
+      - >-
+        docker buildx build --load
+        --build-arg BASE_IMAGE={{.IMAGE_REGISTRY}}/base:latest
+        -t {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}}
+        -t {{.IMAGE_REGISTRY}}/node:latest images/node/
     sources:
+      - images/base/Dockerfile
       - images/node/Dockerfile
 
   build-image-shell:
     desc: Build shell runtime image
+    deps: [build-image-base]
     cmds:
-      - docker buildx build --load -t {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}} -t {{.IMAGE_REGISTRY}}/shell:latest images/shell/
+      - >-
+        docker buildx build --load
+        --build-arg BASE_IMAGE={{.IMAGE_REGISTRY}}/base:latest
+        -t {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}}
+        -t {{.IMAGE_REGISTRY}}/shell:latest images/shell/
     sources:
+      - images/base/Dockerfile
       - images/shell/Dockerfile
 
   build-images:
@@ -253,6 +278,7 @@ tasks:
     desc: Push all runtime images to registry
     deps: [build-images]
     cmds:
+      - docker push {{.IMAGE_REGISTRY}}/base:{{.IMAGE_TAG}}
       - docker push {{.IMAGE_REGISTRY}}/python:{{.IMAGE_TAG}}
       - docker push {{.IMAGE_REGISTRY}}/node:{{.IMAGE_TAG}}
       - docker push {{.IMAGE_REGISTRY}}/shell:{{.IMAGE_TAG}}
