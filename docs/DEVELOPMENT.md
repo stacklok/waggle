@@ -4,13 +4,18 @@
 
 | Requirement | Purpose |
 |-------------|---------|
-| Go 1.25.7+ | Language runtime |
+| [Go](https://go.dev/dl/) 1.26+ | Language runtime |
 | [Task](https://taskfile.dev/) | Build system (`go install github.com/go-task/task/v3/cmd/task@latest`) |
+| [GitHub CLI](https://cli.github.com/) (`gh`) | Downloads propolis runtime from GitHub Releases |
 | [golangci-lint](https://golangci-lint.run/) | Linting |
 | [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) | Import formatting |
-| [propolis](https://github.com/stacklok/propolis) | VM substrate (checked out as sibling directory) |
-| libkrun-devel | VM hypervisor (Linux: `dnf install libkrun-devel`, macOS: `brew install libkrun`) |
 | KVM access | Linux: ensure `/dev/kvm` is accessible to your user |
+
+For the `build-dev-system` target (builds propolis-runner from source instead of downloading):
+
+| Requirement | Purpose |
+|-------------|---------|
+| libkrun-devel | VM hypervisor (Linux: `dnf install libkrun-devel`, macOS: `brew install libkrun`) |
 
 ## Repository Layout
 
@@ -36,16 +41,13 @@ waggle/
 ├── docs/                       # Architecture and development docs
 ├── Taskfile.yaml               # Build system
 ├── CLAUDE.md                   # AI assistant instructions
-└── go.mod                      # Go module (with propolis replace)
+└── go.mod                      # Go module
 ```
 
 ## Getting Started
 
 ```bash
-# Ensure propolis is checked out alongside waggle
-ls ../propolis/go.mod  # Should exist
-
-# Build
+# Build (automatically downloads propolis runtime + firmware from GitHub Releases)
 task build
 
 # Run tests

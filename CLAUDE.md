@@ -27,7 +27,7 @@ Run a single test: `go test -v -race -run TestName ./pkg/path/to/package`
 
 ## Things That Will Bite You
 
-- **propolis is a tagged dependency (v0.0.15)**: `task build` embeds propolis-runner, libkrun, and libkrunfw into the binary (downloaded via `task fetch-runtime`/`task fetch-firmware`, verified with sha256sums). Use `build-dev-system` for the system libkrun-devel path.
+- **propolis is a tagged dependency (v0.0.16)**: `task build` embeds propolis-runner, libkrun, and libkrunfw into the binary (downloaded via `task fetch-runtime`/`task fetch-firmware`, verified with sha256sums). Use `build-dev-system` for the system libkrun-devel path.
 - **Image cache and log level**: `WAGGLE_IMAGE_CACHE_DIR` (default `~/.cache/waggle/images/`) enables shared OCI image cache with layer-level caching and COW rootfs cloning. `WAGGLE_IMAGE_CACHE_MAX_AGE` (default `168h`/7d) controls eviction. `WAGGLE_LOG_LEVEL` (0-5, default 0) sets libkrun verbosity; levels > 3 leak hypervisor internals.
 - **Layered images**: Runtime images (python/node/shell) inherit from `images/base/` via `ARG BASE_IMAGE`. Build base first: `task build-image-base`. All runtime image tasks depend on it automatically.
 - **MCP error handling has two paths**: Return `mcp.NewToolResultError("msg"), nil` for user-facing errors (bad input, not found). Return `nil, err` only for internal server failures. Mixing these up breaks the MCP protocol.

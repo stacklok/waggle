@@ -1,8 +1,29 @@
 # Waggle
 
+[![Build](https://github.com/stacklok/waggle/actions/workflows/build.yml/badge.svg)](https://github.com/stacklok/waggle/actions/workflows/build.yml)
+[![Tests](https://github.com/stacklok/waggle/actions/workflows/test.yml/badge.svg)](https://github.com/stacklok/waggle/actions/workflows/test.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/github/go-mod/go-version/stacklok/waggle)](go.mod)
+
+> [!WARNING]
+> **Experimental** — Waggle is under active development. APIs, configuration, and behavior may change without notice. Use at your own risk and expect breaking changes between releases.
+
 An MCP server that gives AI agents their own isolated coding environments. Each environment is a real microVM — spin one up, write code, execute it, install packages, read results, tear it down. All through 8 simple MCP tools.
 
 > The waggle dance is one of the most fascinating things in nature — bees encode distance, direction, and quality of resources in a figure-eight dance pattern. Waggle encodes execution environments, runs code, and communicates structured results back to the AI.
+
+## Table of Contents
+
+- [What It Looks Like](#what-it-looks-like)
+- [MCP Tools](#mcp-tools)
+- [Why MicroVMs](#why-microvms)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Security](#security)
+- [Runtime Images](#runtime-images)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## What It Looks Like
 
@@ -101,31 +122,29 @@ The trade-off is startup time (seconds vs milliseconds), but you get a real Linu
 
 ## Quick Start
 
+### Prerequisites
+
+- [Go](https://go.dev/dl/) 1.26+
+- [Task](https://taskfile.dev/) (`go install github.com/go-task/task/v3/cmd/task@latest`)
+- [GitHub CLI](https://cli.github.com/) (`gh`) — used to download the propolis runtime
+- KVM access on Linux (`/dev/kvm`) or Hypervisor.framework on macOS
+
+### Build and Run
+
 ```bash
-# Clone alongside propolis (required as sibling directory)
-cd ~/Development/stacklok
 git clone https://github.com/stacklok/waggle.git
-
-# Build
 cd waggle
-task build
-
-# Optional: override runtime images
-# export WAGGLE_IMAGE_PYTHON=ghcr.io/stacklok/waggle/python:latest
-# export WAGGLE_IMAGE_NODE=ghcr.io/stacklok/waggle/node:latest
-# export WAGGLE_IMAGE_SHELL=ghcr.io/stacklok/waggle/shell:latest
-task run
+task build    # Downloads propolis runtime + firmware, builds a self-contained binary
+task run      # Starts the MCP server
 ```
 
 The server starts on `127.0.0.1:8080` with the MCP endpoint at `/mcp` (Streamable HTTP transport).
 
-### Prerequisites
+Verify it's running:
 
-- Go 1.25.7+, [Task](https://taskfile.dev/)
-- [propolis](https://github.com/stacklok/propolis) checked out at `../propolis`
-- `propolis-runner` binary in PATH (see propolis docs)
-- libkrun (Linux: `libkrun-devel`, macOS: Homebrew)
-- KVM access on Linux (`/dev/kvm`) or Hypervisor.framework on macOS
+```bash
+curl -s http://127.0.0.1:8080/healthz
+```
 
 ## Configuration
 
@@ -208,6 +227,18 @@ task verify   # Full CI gate (fmt + lint + test)
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the DDD layer breakdown and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full dev guide.
 
+## Contributing
+
+Contributions are welcome! Whether it's bug reports, feature requests, or pull requests — all contributions help.
+
+To get started with development:
+
+```bash
+task verify   # Full CI gate: format, lint, test
+```
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full development guide, including how to add new MCP tools and runtimes.
+
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE).
+This project is licensed under the Apache 2.0 License — see the [LICENSE](LICENSE) file for details.
