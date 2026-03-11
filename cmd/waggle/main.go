@@ -20,6 +20,7 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/stacklok/propolis/image"
 
 	"github.com/stacklok/waggle/pkg/cleanup"
 	"github.com/stacklok/waggle/pkg/config"
@@ -96,8 +97,15 @@ func run(logFile string) error {
 	// Create infrastructure components.
 	repo := store.NewMemoryStore()
 
+	imageCache := initImageCache(cfg)
+
 	// Wire VM provider options (embedded runtime when available).
 	var providerOpts []vm.ProviderOption
+	providerOpts = append(providerOpts, vm.WithImageCache(imageCache))
+	if cfg.LogLevel > 0 {
+		providerOpts = append(providerOpts, vm.WithLogLevel(cfg.LogLevel))
+	}
+
 	if runtimebin.Available() {
 		if cfg.CacheDir == "" {
 			cfg.CacheDir = runtimeCacheDir()
@@ -192,6 +200,25 @@ func run(logFile string) error {
 
 	slog.Info("waggle stopped")
 	return nil
+}
+
+// initImageCache creates a shared OCI image cache and evicts stale entries.
+func initImageCache(cfg *config.Config) *image.Cache {
+	dir := cfg.ImageCacheDir
+	if dir == "" {
+		dir = filepath.Join(xdg.CacheHome, "waggle", "images")
+	}
+	cache := image.NewCache(dir)
+
+	if cfg.ImageCacheMaxAge > 0 {
+		if removed, err := cache.Evict(cfg.ImageCacheMaxAge); err != nil {
+			slog.Warn("image cache eviction failed", "error", err)
+		} else if removed > 0 {
+			slog.Info("evicted stale image cache entries",
+				"count", removed)
+		}
+	}
+	return cache
 }
 
 // runtimeCacheDir returns the directory used for extracting embedded runtime

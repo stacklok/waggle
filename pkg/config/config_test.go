@@ -5,6 +5,7 @@ package config
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stacklok/waggle/pkg/domain/environment"
 )
@@ -46,6 +47,15 @@ func TestDefaultConfig(t *testing.T) {
 	}
 	if len(cfg.RuntimeCommands) != 0 {
 		t.Errorf("RuntimeCommands = %v, want empty", cfg.RuntimeCommands)
+	}
+	if cfg.ImageCacheMaxAge != 7*24*time.Hour {
+		t.Errorf("ImageCacheMaxAge = %v, want %v", cfg.ImageCacheMaxAge, 7*24*time.Hour)
+	}
+	if cfg.ImageCacheDir != "" {
+		t.Errorf("ImageCacheDir = %q, want empty", cfg.ImageCacheDir)
+	}
+	if cfg.LogLevel != 0 {
+		t.Errorf("LogLevel = %d, want 0", cfg.LogLevel)
 	}
 }
 
@@ -108,6 +118,18 @@ func TestValidate(t *testing.T) {
 			modify:  func(c *Config) { c.InitPath = "/nonexistent/waggle-init" },
 			wantErr: true,
 		},
+		{
+			name: "log level clamped to max",
+			modify: func(c *Config) {
+				c.LogLevel = 10
+			},
+		},
+		{
+			name: "log level at max is valid",
+			modify: func(c *Config) {
+				c.LogLevel = 5
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -140,6 +162,9 @@ func TestLoadFromEnv(t *testing.T) {
 	t.Setenv("WAGGLE_INIT_PATH", "/usr/bin/waggle-init")
 	t.Setenv("WAGGLE_LIB_DIR", "/usr/lib")
 	t.Setenv("WAGGLE_REAPER_INTERVAL", "2m")
+	t.Setenv("WAGGLE_IMAGE_CACHE_DIR", "/tmp/waggle-images")
+	t.Setenv("WAGGLE_IMAGE_CACHE_MAX_AGE", "48h")
+	t.Setenv("WAGGLE_LOG_LEVEL", "3")
 	t.Setenv("WAGGLE_IMAGE_PYTHON", "ghcr.io/stacklok/waggle-python:latest")
 	t.Setenv("WAGGLE_RUNTIME_PYTHON_EXEC_COMMAND", "/usr/bin/python")
 	t.Setenv("WAGGLE_RUNTIME_PYTHON_INSTALL_COMMAND", "/usr/bin/pip install")
@@ -182,6 +207,15 @@ func TestLoadFromEnv(t *testing.T) {
 	if cfg.ReaperInterval.String() != "2m0s" {
 		t.Errorf("ReaperInterval = %v, want 2m0s", cfg.ReaperInterval)
 	}
+	if cfg.ImageCacheDir != "/tmp/waggle-images" {
+		t.Errorf("ImageCacheDir = %q, want %q", cfg.ImageCacheDir, "/tmp/waggle-images")
+	}
+	if cfg.ImageCacheMaxAge != 48*time.Hour {
+		t.Errorf("ImageCacheMaxAge = %v, want %v", cfg.ImageCacheMaxAge, 48*time.Hour)
+	}
+	if cfg.LogLevel != 3 {
+		t.Errorf("LogLevel = %d, want %d", cfg.LogLevel, 3)
+	}
 	want := "ghcr.io/stacklok/waggle-python:latest"
 	if cfg.ImageRef(environment.RuntimePython) != want {
 		t.Errorf("ImageRef(python) = %q, want %q", cfg.ImageRef(environment.RuntimePython), want)
@@ -220,6 +254,20 @@ func TestImageRef(t *testing.T) {
 	}
 	if got := cfg.ImageRef(environment.RuntimeNode); got != defaultImageNode {
 		t.Errorf("ImageRef(node) = %q, want %q", got, defaultImageNode)
+	}
+}
+
+func TestValidateLogLevelClamping(t *testing.T) {
+	t.Parallel()
+
+	cfg := Default()
+	cfg.LogLevel = 10
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.LogLevel != 5 {
+		t.Errorf("LogLevel = %d after clamping, want 5", cfg.LogLevel)
 	}
 }
 

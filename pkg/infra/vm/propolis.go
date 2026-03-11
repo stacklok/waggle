@@ -15,6 +15,7 @@ import (
 	"github.com/stacklok/propolis/extract"
 	"github.com/stacklok/propolis/hooks"
 	"github.com/stacklok/propolis/hypervisor/libkrun"
+	"github.com/stacklok/propolis/image"
 	propolisssh "github.com/stacklok/propolis/ssh"
 
 	"github.com/stacklok/waggle/pkg/domain/environment"
@@ -37,6 +38,12 @@ type PropolisProvider struct {
 
 	// firmwareSource optionally provides libkrunfw via extraction.
 	firmwareSource extract.Source
+
+	// imageCache optionally provides a shared OCI image cache.
+	imageCache *image.Cache
+
+	// logLevel sets the libkrun log verbosity (0=off, 5=trace).
+	logLevel uint32
 }
 
 // ProviderOption configures a PropolisProvider.
@@ -50,6 +57,17 @@ func WithRuntimeSource(src extract.Source) ProviderOption {
 // WithFirmwareSource sets an extract.Source providing libkrunfw.
 func WithFirmwareSource(src extract.Source) ProviderOption {
 	return func(p *PropolisProvider) { p.firmwareSource = src }
+}
+
+// WithImageCache sets a shared OCI image cache for layer-level
+// caching and COW rootfs cloning.
+func WithImageCache(cache *image.Cache) ProviderOption {
+	return func(p *PropolisProvider) { p.imageCache = cache }
+}
+
+// WithLogLevel sets the libkrun log verbosity (0=off through 5=trace).
+func WithLogLevel(level uint32) ProviderOption {
+	return func(p *PropolisProvider) { p.logLevel = level }
 }
 
 // NewPropolisProvider creates a new PropolisProvider.
@@ -120,6 +138,15 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 
 		// Wait for SSH to become ready after boot.
 		propolis.WithPostBoot(sshReadyWaiter(env.SSHPort, privateKeyPath)),
+	}
+
+	if p.imageCache != nil {
+		propolisOpts = append(propolisOpts,
+			propolis.WithImageCache(p.imageCache))
+	}
+	if p.logLevel > 0 {
+		propolisOpts = append(propolisOpts,
+			propolis.WithLogLevel(p.logLevel))
 	}
 
 	propolisOpts = append(propolisOpts, propolis.WithBackend(

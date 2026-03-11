@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -19,21 +20,23 @@ const (
 	// EnvPrefix is the prefix for all waggle environment variables.
 	EnvPrefix = "WAGGLE_"
 
-	defaultListenAddr      = "127.0.0.1:8080"
-	defaultCPUs            = 1
-	defaultMemoryMB        = 512
-	defaultMaxEnvironments = 10
-	defaultTimeoutMin      = 30
-	defaultBootTimeout     = 2 * time.Minute
-	defaultExecTimeout     = 30 * time.Second
-	defaultMaxExecTimeout  = 5 * time.Minute
-	defaultSSHPortBase     = 10000
-	defaultSSHPortMax      = 11000
-	defaultReaperInterval  = time.Minute
-	defaultDataDirName     = "waggle"
-	defaultImagePython     = "ghcr.io/stacklok/waggle/python:latest"
-	defaultImageNode       = "ghcr.io/stacklok/waggle/node:latest"
-	defaultImageShell      = "ghcr.io/stacklok/waggle/shell:latest"
+	defaultListenAddr              = "127.0.0.1:8080"
+	defaultCPUs                    = 1
+	defaultMemoryMB                = 512
+	defaultMaxEnvironments         = 10
+	defaultTimeoutMin              = 30
+	defaultBootTimeout             = 2 * time.Minute
+	defaultExecTimeout             = 30 * time.Second
+	defaultMaxExecTimeout          = 5 * time.Minute
+	defaultSSHPortBase             = 10000
+	defaultSSHPortMax              = 11000
+	defaultReaperInterval          = time.Minute
+	defaultImageCacheMaxAge        = 7 * 24 * time.Hour
+	defaultDataDirName             = "waggle"
+	maxLogLevel             uint32 = 5
+	defaultImagePython             = "ghcr.io/stacklok/waggle/python:latest"
+	defaultImageNode               = "ghcr.io/stacklok/waggle/node:latest"
+	defaultImageShell              = "ghcr.io/stacklok/waggle/shell:latest"
 )
 
 // Config holds the waggle server configuration.
@@ -96,6 +99,19 @@ type Config struct {
 	// ReaperInterval is how often the background reaper checks for
 	// expired environments.
 	ReaperInterval time.Duration
+
+	// ImageCacheDir is an optional shared OCI image cache directory.
+	// When set, the image cache is externalized from per-VM data dirs,
+	// enabling layer-level caching and COW rootfs cloning.
+	ImageCacheDir string
+
+	// ImageCacheMaxAge is the maximum age for cached image entries
+	// before they are evicted. Defaults to 7 days.
+	ImageCacheMaxAge time.Duration
+
+	// LogLevel sets the libkrun log verbosity (0=off through 5=trace).
+	// Defaults to 0.
+	LogLevel uint32
 }
 
 // RuntimeCommandConfig configures runtime-specific exec/install commands.
@@ -121,6 +137,7 @@ func Default() *Config {
 		Images:             defaultImages(),
 		RuntimeCommands:    map[string]RuntimeCommandConfig{},
 		ReaperInterval:     defaultReaperInterval,
+		ImageCacheMaxAge:   defaultImageCacheMaxAge,
 	}
 }
 
@@ -175,6 +192,9 @@ func loadEnvStrings(cfg *Config) {
 	if v := os.Getenv(EnvPrefix + "CACHE_DIR"); v != "" {
 		cfg.CacheDir = filepath.Clean(v)
 	}
+	if v := os.Getenv(EnvPrefix + "IMAGE_CACHE_DIR"); v != "" {
+		cfg.ImageCacheDir = filepath.Clean(v)
+	}
 }
 
 // loadEnvNumerics applies numeric-typed environment variables to cfg.
@@ -209,6 +229,12 @@ func loadEnvNumerics(cfg *Config) {
 	if v := envDuration("REAPER_INTERVAL"); v > 0 {
 		cfg.ReaperInterval = v
 	}
+	if v := envDuration("IMAGE_CACHE_MAX_AGE"); v > 0 {
+		cfg.ImageCacheMaxAge = v
+	}
+	if v := envUint32("LOG_LEVEL"); v > 0 {
+		cfg.LogLevel = v
+	}
 }
 
 // Validate checks the configuration for logical consistency.
@@ -238,6 +264,15 @@ func (c *Config) Validate() error {
 		if _, err := os.Stat(c.InitPath); err != nil {
 			return fmt.Errorf("init binary not found at %s: %w", c.InitPath, err)
 		}
+	}
+	if c.LogLevel > maxLogLevel {
+		slog.Warn("clamping log level to maximum",
+			"requested", c.LogLevel, "max", maxLogLevel)
+		c.LogLevel = maxLogLevel
+	}
+	if c.LogLevel > 3 {
+		slog.Warn("high log level may expose hypervisor internals",
+			"level", c.LogLevel)
 	}
 	return nil
 }

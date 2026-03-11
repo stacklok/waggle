@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stacklok/propolis/extract"
+	"github.com/stacklok/propolis/image"
 )
 
 func TestNewPropolisProvider(t *testing.T) {
@@ -41,6 +42,23 @@ func TestNewPropolisProvider(t *testing.T) {
 		}
 		if p.firmwareSource == nil {
 			t.Error("firmwareSource should be set")
+		}
+	})
+
+	t.Run("with image cache", func(t *testing.T) {
+		t.Parallel()
+		cache := image.NewCache(t.TempDir())
+		p := NewPropolisProvider(WithImageCache(cache))
+		if p.imageCache == nil {
+			t.Error("imageCache should be set")
+		}
+	})
+
+	t.Run("with log level", func(t *testing.T) {
+		t.Parallel()
+		p := NewPropolisProvider(WithLogLevel(3))
+		if p.logLevel != 3 {
+			t.Errorf("logLevel = %d, want 3", p.logLevel)
 		}
 	})
 }
