@@ -148,6 +148,7 @@ func (s *EnvironmentService) Create(
 		return nil, fmt.Errorf("save running state: %w", err)
 	}
 
+	//nolint:gosec // G118: probe intentionally outlives request ctx.
 	go s.probeCapabilitiesWithRetry(context.Background(), env.ID, env.SSHPort, probeRetryCount)
 
 	slog.Info("environment ready",

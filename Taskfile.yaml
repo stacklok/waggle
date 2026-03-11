@@ -110,6 +110,12 @@ tasks:
         --pattern "propolis-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz"
         --dir pkg/infra/vm/runtimebin/ --clobber
       - >-
+        gh release download {{.PROPOLIS_VERSION}}
+        --repo stacklok/propolis
+        --pattern "sha256sums.txt"
+        --dir pkg/infra/vm/runtimebin/ --clobber
+      - cd pkg/infra/vm/runtimebin/ && sha256sum --check --ignore-missing sha256sums.txt
+      - >-
         tar -xzf pkg/infra/vm/runtimebin/propolis-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
         -C pkg/infra/vm/runtimebin/ --strip-components=1
       - rm -f pkg/infra/vm/runtimebin/propolis-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
@@ -125,6 +131,12 @@ tasks:
         --repo stacklok/propolis
         --pattern "propolis-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz"
         --dir pkg/infra/vm/runtimebin/ --clobber
+      - >-
+        gh release download {{.PROPOLIS_VERSION}}
+        --repo stacklok/propolis
+        --pattern "sha256sums.txt"
+        --dir pkg/infra/vm/runtimebin/ --clobber
+      - cd pkg/infra/vm/runtimebin/ && sha256sum --check --ignore-missing sha256sums.txt
       - >-
         tar -xzf pkg/infra/vm/runtimebin/propolis-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
         -C pkg/infra/vm/runtimebin/ --strip-components=1
@@ -208,8 +220,8 @@ tasks:
       - rm -f coverage.out coverage.html
       - rm -f pkg/infra/vm/initbin/waggle-init
       - rm -f pkg/infra/vm/runtimebin/propolis-runner
-      - rm -f pkg/infra/vm/runtimebin/libkrun.so.1 pkg/infra/vm/runtimebin/libkrun.dylib
-      - rm -f pkg/infra/vm/runtimebin/libkrunfw.so.5 pkg/infra/vm/runtimebin/libkrunfw.dylib
+      - rm -f pkg/infra/vm/runtimebin/libkrun.so.1 pkg/infra/vm/runtimebin/libkrun.1.dylib
+      - rm -f pkg/infra/vm/runtimebin/libkrunfw.so.5 pkg/infra/vm/runtimebin/libkrunfw.5.dylib
       - rm -f pkg/infra/vm/runtimebin/VERSION pkg/infra/vm/runtimebin/LICENSE-GPL
 
   build-image-python:

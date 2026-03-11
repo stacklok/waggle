@@ -10,10 +10,10 @@ import _ "embed"
 //go:embed propolis-runner
 var runner []byte
 
-//go:embed libkrun.dylib
+//go:embed libkrun.1.dylib
 var libkrun []byte
 
-//go:embed libkrunfw.dylib
+//go:embed libkrunfw.5.dylib
 var libkrunfw []byte
 
 const available = true
