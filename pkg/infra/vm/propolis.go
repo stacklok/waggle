@@ -256,6 +256,10 @@ func (p *PropolisProvider) buildBackendOpts(opts CreateVMOpts) []libkrun.Option 
 	if runtimeSrc != nil || firmwareSrc != nil {
 		out = append(out, libkrun.WithCacheDir(cacheDir))
 	}
+	// Spawn the runner in a user namespace so libkrun's virtiofs passthrough
+	// gains CAP_SETGID within the namespace. Without this, set_creds() fails
+	// with EPERM when host GID != guest GID.
+	out = append(out, libkrun.WithUserNamespaceUID(1000, 1000))
 	return out
 }
 
