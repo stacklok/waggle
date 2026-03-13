@@ -28,6 +28,7 @@ func main() {
 		boot.WithSSHKeysPath("/home/sandbox/.ssh/authorized_keys"),
 		boot.WithUser("sandbox", "/home/sandbox", "/bin/sh", 1000, 1000),
 		boot.WithLockdownRoot(true),
+		boot.WithSeccomp(true),
 	)
 	if err != nil {
 		logger.Error("boot failed", "error", err)

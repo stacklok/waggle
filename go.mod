@@ -9,7 +9,7 @@ require (
 	github.com/adrg/xdg v0.5.3
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.45.0
-	github.com/stacklok/propolis v0.0.18
+	github.com/stacklok/propolis v0.0.20
 )
 
 require (
@@ -30,6 +30,7 @@ require (
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/elastic/go-seccomp-bpf v1.6.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
