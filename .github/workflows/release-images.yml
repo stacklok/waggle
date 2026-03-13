@@ -11,8 +11,64 @@ on:
 permissions: {}
 
 jobs:
+  build-base:
+    name: Build base image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract tag version
+        id: tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Set repository owner lowercase
+        id: repo_owner
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: echo "OWNER=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Build and push base image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: images/base
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo_owner.outputs.OWNER }}/waggle/base:${{ steps.tag.outputs.VERSION }}
+            ghcr.io/${{ steps.repo_owner.outputs.OWNER }}/waggle/base:latest
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Sign base image with Cosign
+        env:
+          IMAGE: ghcr.io/${{ steps.repo_owner.outputs.OWNER }}/waggle/base
+          TAG_VERSION: ${{ steps.tag.outputs.VERSION }}
+        run: |
+          cosign sign -y "$IMAGE:$TAG_VERSION"
+          cosign sign -y "$IMAGE:latest"
+
   build-and-push:
     name: Build ${{ matrix.image }} image
+    needs: build-base
     runs-on: ubuntu-latest
     permissions:
       contents: read
