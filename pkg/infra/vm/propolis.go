@@ -149,6 +149,11 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 			propolis.WithLogLevel(p.logLevel))
 	}
 
+	if checks := extraPreflightChecks(); len(checks) > 0 {
+		propolisOpts = append(propolisOpts,
+			propolis.WithPreflightChecks(checks...))
+	}
+
 	propolisOpts = append(propolisOpts, propolis.WithBackend(
 		libkrun.NewBackend(p.buildBackendOpts(opts)...),
 	))
