@@ -20,7 +20,7 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/stacklok/propolis/image"
+	"github.com/stacklok/go-microvm/image"
 
 	"github.com/stacklok/waggle/pkg/cleanup"
 	"github.com/stacklok/waggle/pkg/config"
@@ -114,10 +114,10 @@ func run(logFile string) error {
 			vm.WithRuntimeSource(runtimebin.RuntimeSource()),
 			vm.WithFirmwareSource(runtimebin.FirmwareSource()),
 		)
-		slog.Info("using embedded propolis runtime", "version", runtimebin.Version)
+		slog.Info("using embedded go-microvm runtime", "version", runtimebin.Version)
 	}
 
-	provider := vm.NewPropolisProvider(providerOpts...)
+	provider := vm.NewMicroVMProvider(providerOpts...)
 	portAlloc := vm.NewPortAllocator(cfg.SSHPortBase, cfg.SSHPortMax)
 
 	// Create domain adapters.

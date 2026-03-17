@@ -11,8 +11,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/stacklok/propolis/guest/boot"
-	"github.com/stacklok/propolis/guest/reaper"
+	"github.com/stacklok/go-microvm/guest/boot"
+	"github.com/stacklok/go-microvm/guest/reaper"
 )
 
 func main() {

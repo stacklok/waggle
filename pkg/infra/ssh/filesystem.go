@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	propolisssh "github.com/stacklok/propolis/ssh"
+	microvmssh "github.com/stacklok/go-microvm/ssh"
 
 	"github.com/stacklok/waggle/pkg/domain/filesystem"
 )
@@ -36,12 +36,12 @@ func NewFileSystem() *FileSystem {
 func (*FileSystem) WriteFile(
 	ctx context.Context, conn filesystem.ConnInfo, path string, content []byte, mode os.FileMode,
 ) error {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
+	client := microvmssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 
 	// Create parent directory if needed.
 	dir := parentDir(path)
 	if dir != "" && dir != "." && dir != "/" {
-		mkdirCmd := fmt.Sprintf("mkdir -p %s", propolisssh.ShellEscape(dir))
+		mkdirCmd := fmt.Sprintf("mkdir -p %s", microvmssh.ShellEscape(dir))
 		if _, mkdirErr := client.Run(ctx, mkdirCmd); mkdirErr != nil {
 			return fmt.Errorf("mkdir for write: %w", mkdirErr)
 		}
@@ -49,14 +49,14 @@ func (*FileSystem) WriteFile(
 
 	// Write content via stdin pipe to cat, then chmod.
 	cmd := fmt.Sprintf("cat > %s && chmod %o %s",
-		propolisssh.ShellEscape(path), mode, propolisssh.ShellEscape(path))
+		microvmssh.ShellEscape(path), mode, microvmssh.ShellEscape(path))
 
 	var stdout, stderr bytes.Buffer
 	stdinReader := bytes.NewReader(content)
 
 	// We need to use a lower-level approach since CopyTo expects a local file.
 	// Use Run with stdin piped content.
-	// Actually, propolis ssh.Client doesn't expose stdin on Run, only on the
+	// Actually, go-microvm ssh.Client doesn't expose stdin on Run, only on the
 	// session directly. We'll write via a temp approach:
 	// base64 encode on host, decode on guest.
 	_ = stdinReader // unused, we'll use a different approach
@@ -93,9 +93,9 @@ func (*FileSystem) WriteFile(
 
 // ReadFile reads a file from the environment via SSH.
 func (*FileSystem) ReadFile(ctx context.Context, conn filesystem.ConnInfo, path string) ([]byte, error) {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
+	client := microvmssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 
-	cmd := fmt.Sprintf("cat %s", propolisssh.ShellEscape(path))
+	cmd := fmt.Sprintf("cat %s", microvmssh.ShellEscape(path))
 	output, runErr := client.Run(ctx, cmd)
 	if runErr != nil {
 		return nil, fmt.Errorf("read file %s: %w", path, runErr)
@@ -108,7 +108,7 @@ func (*FileSystem) ReadFile(ctx context.Context, conn filesystem.ConnInfo, path 
 func (*FileSystem) ListFiles(
 	ctx context.Context, conn filesystem.ConnInfo, path string,
 ) ([]filesystem.FileInfo, error) {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
+	client := microvmssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 	cmd := listFilesCommand(path)
 
 	output, runErr := client.Run(ctx, cmd)
@@ -189,11 +189,11 @@ func listFilesCommand(path string) string {
 
 	return fmt.Sprintf(
 		template,
-		propolisssh.ShellEscape(encoded),
-		propolisssh.ShellEscape(path),
-		propolisssh.ShellEscape(listHeader),
-		propolisssh.ShellEscape(path),
-		propolisssh.ShellEscape(listHeader),
+		microvmssh.ShellEscape(encoded),
+		microvmssh.ShellEscape(path),
+		microvmssh.ShellEscape(listHeader),
+		microvmssh.ShellEscape(path),
+		microvmssh.ShellEscape(listHeader),
 		listFilesScript,
 	)
 }

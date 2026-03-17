@@ -6,5 +6,5 @@
 // Package main provides the entry point for waggle-init, a minimal init
 // process that runs as PID 1 inside guest VMs. It starts a zombie reaper,
 // configures the system (mounts, network, hardening), and launches an
-// embedded SSH server via propolis guest/boot.
+// embedded SSH server via go-microvm guest/boot.
 package main

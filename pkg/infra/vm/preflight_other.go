@@ -5,7 +5,7 @@
 
 package vm
 
-import "github.com/stacklok/propolis/preflight"
+import "github.com/stacklok/go-microvm/preflight"
 
 // extraPreflightChecks returns nil on non-Linux platforms where user
 // namespace checks are not applicable.

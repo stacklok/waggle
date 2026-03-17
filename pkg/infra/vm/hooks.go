@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/stacklok/propolis/image"
+	"github.com/stacklok/go-microvm/image"
 
 	"github.com/stacklok/waggle/pkg/infra/vm/initbin"
 )

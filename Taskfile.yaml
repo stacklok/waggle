@@ -16,8 +16,8 @@ vars:
     sh: git rev-parse --short HEAD 2>/dev/null || echo "unknown"
   BUILD_DATE:
     sh: date -u +"%Y-%m-%dT%H:%M:%SZ"
-  PROPOLIS_VERSION:
-    sh: go list -m github.com/stacklok/propolis | awk '{print $2}'
+  MICROVM_VERSION:
+    sh: go list -m github.com/stacklok/go-microvm | awk '{print $2}'
   HOST_ARCH:
     sh: uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'
   HOST_OS:
@@ -32,13 +32,13 @@ vars:
     -X main.version={{.VERSION}}
     -X main.commit={{.COMMIT}}
     -X main.buildDate={{.BUILD_DATE}}
-    -X github.com/stacklok/waggle/pkg/infra/vm/runtimebin.Version={{.PROPOLIS_VERSION}}
+    -X github.com/stacklok/waggle/pkg/infra/vm/runtimebin.Version={{.MICROVM_VERSION}}
 
 # Quick reference:
-#   task build            → Build self-contained waggle with embedded propolis runtime
-#   task build-dev-system → Build waggle + propolis-runner from system libkrun
-#   task fetch-runtime    → Download pre-built propolis runtime from GitHub Release
-#   task fetch-firmware   → Download pre-built propolis firmware from GitHub Release
+#   task build            → Build self-contained waggle with embedded go-microvm runtime
+#   task build-dev-system → Build waggle + go-microvm-runner from system libkrun
+#   task fetch-runtime    → Download pre-built go-microvm runtime from GitHub Release
+#   task fetch-firmware   → Download pre-built go-microvm firmware from GitHub Release
 #   task test             → Run tests with race detector
 #   task lint             → Run linter
 #   task verify           → fmt + lint + test
@@ -50,7 +50,7 @@ tasks:
       - task --list
 
   build:
-    desc: Build self-contained waggle with embedded propolis runtime
+    desc: Build self-contained waggle with embedded go-microvm runtime
     deps: [build-init, fetch-runtime, fetch-firmware]
     env:
       CGO_ENABLED: "0"
@@ -65,65 +65,65 @@ tasks:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
   build-dev-system:
-    desc: Build waggle + propolis-runner from system libkrun (requires libkrun-devel)
+    desc: Build waggle + go-microvm-runner from system libkrun (requires libkrun-devel)
     platforms: [linux]
     cmds:
       - task: build
       - mkdir -p {{.BUILD_DIR}}
-      - CGO_ENABLED=1 go build -o {{.BUILD_DIR}}/propolis-runner github.com/stacklok/propolis/runner/cmd/propolis-runner
+      - CGO_ENABLED=1 go build -o {{.BUILD_DIR}}/go-microvm-runner github.com/stacklok/go-microvm/runner/cmd/go-microvm-runner
 
   build-dev-system-darwin:
-    desc: Build waggle + propolis-runner from system libkrun (macOS, requires Homebrew libkrun)
+    desc: Build waggle + go-microvm-runner from system libkrun (macOS, requires Homebrew libkrun)
     platforms: [darwin]
     cmds:
       - task: build
       - mkdir -p {{.BUILD_DIR}}
-      - CGO_ENABLED=1 go build -o {{.BUILD_DIR}}/propolis-runner github.com/stacklok/propolis/runner/cmd/propolis-runner
-      - codesign --entitlements assets/entitlements.plist --force -s - {{.BUILD_DIR}}/propolis-runner
+      - CGO_ENABLED=1 go build -o {{.BUILD_DIR}}/go-microvm-runner github.com/stacklok/go-microvm/runner/cmd/go-microvm-runner
+      - codesign --entitlements assets/entitlements.plist --force -s - {{.BUILD_DIR}}/go-microvm-runner
 
   fetch-runtime:
-    desc: Download pre-built propolis runtime from GitHub Release
+    desc: Download pre-built go-microvm runtime from GitHub Release
     status:
-      - test -f pkg/infra/vm/runtimebin/propolis-runner
+      - test -f pkg/infra/vm/runtimebin/go-microvm-runner
     cmds:
       - mkdir -p pkg/infra/vm/runtimebin
       - >-
-        gh release download {{.PROPOLIS_VERSION}}
-        --repo stacklok/propolis
-        --pattern "propolis-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz"
+        gh release download {{.MICROVM_VERSION}}
+        --repo stacklok/go-microvm
+        --pattern "go-microvm-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz"
         --dir pkg/infra/vm/runtimebin/ --clobber
       - >-
-        gh release download {{.PROPOLIS_VERSION}}
-        --repo stacklok/propolis
+        gh release download {{.MICROVM_VERSION}}
+        --repo stacklok/go-microvm
         --pattern "sha256sums.txt"
         --dir pkg/infra/vm/runtimebin/ --clobber
       - cd pkg/infra/vm/runtimebin/ && sha256sum --check --ignore-missing sha256sums.txt
       - >-
-        tar -xzf pkg/infra/vm/runtimebin/propolis-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
+        tar -xzf pkg/infra/vm/runtimebin/go-microvm-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
         -C pkg/infra/vm/runtimebin/ --strip-components=1
-      - rm -f pkg/infra/vm/runtimebin/propolis-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
+      - rm -f pkg/infra/vm/runtimebin/go-microvm-runtime-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
 
   fetch-firmware:
-    desc: Download pre-built propolis firmware from GitHub Release
+    desc: Download pre-built go-microvm firmware from GitHub Release
     status:
       - ls pkg/infra/vm/runtimebin/libkrunfw.* >/dev/null 2>&1
     cmds:
       - mkdir -p pkg/infra/vm/runtimebin
       - >-
-        gh release download {{.PROPOLIS_VERSION}}
-        --repo stacklok/propolis
-        --pattern "propolis-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz"
+        gh release download {{.MICROVM_VERSION}}
+        --repo stacklok/go-microvm
+        --pattern "go-microvm-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz"
         --dir pkg/infra/vm/runtimebin/ --clobber
       - >-
-        gh release download {{.PROPOLIS_VERSION}}
-        --repo stacklok/propolis
+        gh release download {{.MICROVM_VERSION}}
+        --repo stacklok/go-microvm
         --pattern "sha256sums.txt"
         --dir pkg/infra/vm/runtimebin/ --clobber
       - cd pkg/infra/vm/runtimebin/ && sha256sum --check --ignore-missing sha256sums.txt
       - >-
-        tar -xzf pkg/infra/vm/runtimebin/propolis-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
+        tar -xzf pkg/infra/vm/runtimebin/go-microvm-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
         -C pkg/infra/vm/runtimebin/ --strip-components=1
-      - rm -f pkg/infra/vm/runtimebin/propolis-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
+      - rm -f pkg/infra/vm/runtimebin/go-microvm-firmware-{{.HOST_OS}}-{{.HOST_ARCH}}.tar.gz
 
   build-init:
     desc: Build the waggle-init binary (guest VM init)
@@ -202,7 +202,7 @@ tasks:
       - rm -rf {{.BUILD_DIR}}/
       - rm -f coverage.out coverage.html
       - rm -f pkg/infra/vm/initbin/waggle-init
-      - rm -f pkg/infra/vm/runtimebin/propolis-runner
+      - rm -f pkg/infra/vm/runtimebin/go-microvm-runner
       - rm -f pkg/infra/vm/runtimebin/libkrun.so.1 pkg/infra/vm/runtimebin/libkrun.1.dylib
       - rm -f pkg/infra/vm/runtimebin/libkrunfw.so.5 pkg/infra/vm/runtimebin/libkrunfw.5.dylib
       - rm -f pkg/infra/vm/runtimebin/VERSION pkg/infra/vm/runtimebin/LICENSE-GPL

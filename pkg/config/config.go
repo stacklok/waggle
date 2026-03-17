@@ -76,7 +76,7 @@ type Config struct {
 	// DataDir is the directory for environment state, SSH keys, and cache.
 	DataDir string
 
-	// RunnerPath is an optional explicit path to the propolis-runner binary.
+	// RunnerPath is an optional explicit path to the go-microvm-runner binary.
 	RunnerPath string
 
 	// InitPath is an optional explicit path to the waggle-init binary

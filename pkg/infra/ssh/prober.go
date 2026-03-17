@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	propolisssh "github.com/stacklok/propolis/ssh"
+	microvmssh "github.com/stacklok/go-microvm/ssh"
 
 	"github.com/stacklok/waggle/pkg/domain/environment"
 )
@@ -29,7 +29,7 @@ func (*Prober) Probe(
 ) (environment.Capabilities, error) {
 	const trueValue = "true"
 
-	client := propolisssh.NewClient(host, port, "sandbox", keyPath)
+	client := microvmssh.NewClient(host, port, "sandbox", keyPath)
 
 	script := strings.TrimSpace(`
 python_cmd=""
@@ -108,7 +108,7 @@ echo "IS_ROOT=$is_root"
 	encoded := base64.StdEncoding.EncodeToString([]byte(script))
 	cmd := fmt.Sprintf(
 		"printf '%%s' %s | base64 -d | sh",
-		propolisssh.ShellEscape(encoded),
+		microvmssh.ShellEscape(encoded),
 	)
 
 	output, runErr := client.Run(ctx, cmd)

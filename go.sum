@@ -132,8 +132,8 @@ github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
 github.com/spf13/cast v1.7.1 h1:cuNEagBQEHWN1FnbGEjCXL2szYEXqfJPbP2HNUaca9Y=
 github.com/spf13/cast v1.7.1/go.mod h1:ancEpBxwJDODSW/UG4rDrAqiKolqNNh2DX3mk86cAdo=
-github.com/stacklok/propolis v0.0.20 h1:IT+WeR0R0dPeevGyspFmzX0QonbQUZArKBrBoncnOEM=
-github.com/stacklok/propolis v0.0.20/go.mod h1:Sxx2/4oajARWD0LtPf1tJ4ohKHMm4aLdIuwvtCcXfc0=
+github.com/stacklok/go-microvm v0.0.22 h1:8mnOqUKIVJK50ib0PUtzVmzQMe4171Kf/Hj3k64W6Nc=
+github.com/stacklok/go-microvm v0.0.22/go.mod h1:0ZQq+17VGGMJEQVYsTnOouEd7+CVb98Ific7fqQHVSc=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/u-root/uio v0.0.0-20240224005618-d2acac8f3701 h1:pyC9PaHYZFgEKFdlp3G8RaCKgVpHZnecvArXvPXcFkM=

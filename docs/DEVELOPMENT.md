@@ -6,12 +6,12 @@
 |-------------|---------|
 | [Go](https://go.dev/dl/) 1.26+ | Language runtime |
 | [Task](https://taskfile.dev/) | Build system (`go install github.com/go-task/task/v3/cmd/task@latest`) |
-| [GitHub CLI](https://cli.github.com/) (`gh`) | Downloads propolis runtime from GitHub Releases |
+| [GitHub CLI](https://cli.github.com/) (`gh`) | Downloads go-microvm runtime from GitHub Releases |
 | [golangci-lint](https://golangci-lint.run/) | Linting |
 | [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) | Import formatting |
 | KVM access | Linux: ensure `/dev/kvm` is accessible to your user |
 
-For the `build-dev-system` target (builds propolis-runner from source instead of downloading):
+For the `build-dev-system` target (builds go-microvm-runner from source instead of downloading):
 
 | Requirement | Purpose |
 |-------------|---------|
@@ -32,7 +32,7 @@ waggle/
 │   │   ├── execution.go        # Execute code, InstallPackages
 │   │   └── filesystem.go       # WriteFile, ReadFile, ListFiles
 │   ├── infra/                  # Infrastructure adapters
-│   │   ├── vm/                 # PropolisProvider, PortAllocator
+│   │   ├── vm/                 # MicroVMProvider, PortAllocator
 │   │   ├── ssh/                # SSHExecutor, SSHFilesystem
 │   │   └── store/              # InMemoryStore
 │   ├── mcp/                    # MCP tool definitions + handlers
@@ -47,7 +47,7 @@ waggle/
 ## Getting Started
 
 ```bash
-# Build (automatically downloads propolis runtime + firmware from GitHub Releases)
+# Build (automatically downloads go-microvm runtime + firmware from GitHub Releases)
 task build
 
 # Run tests

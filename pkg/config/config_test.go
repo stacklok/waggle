@@ -158,7 +158,7 @@ func TestLoadFromEnv(t *testing.T) {
 	t.Setenv("WAGGLE_SSH_PORT_BASE", "20000")
 	t.Setenv("WAGGLE_SSH_PORT_MAX", "21000")
 	t.Setenv("WAGGLE_DATA_DIR", "/tmp/waggle-test")
-	t.Setenv("WAGGLE_RUNNER_PATH", "/usr/bin/propolis-runner")
+	t.Setenv("WAGGLE_RUNNER_PATH", "/usr/bin/go-microvm-runner")
 	t.Setenv("WAGGLE_INIT_PATH", "/usr/bin/waggle-init")
 	t.Setenv("WAGGLE_LIB_DIR", "/usr/lib")
 	t.Setenv("WAGGLE_REAPER_INTERVAL", "2m")
@@ -195,8 +195,8 @@ func TestLoadFromEnv(t *testing.T) {
 	if cfg.DataDir != "/tmp/waggle-test" {
 		t.Errorf("DataDir = %q, want %q", cfg.DataDir, "/tmp/waggle-test")
 	}
-	if cfg.RunnerPath != "/usr/bin/propolis-runner" {
-		t.Errorf("RunnerPath = %q, want %q", cfg.RunnerPath, "/usr/bin/propolis-runner")
+	if cfg.RunnerPath != "/usr/bin/go-microvm-runner" {
+		t.Errorf("RunnerPath = %q, want %q", cfg.RunnerPath, "/usr/bin/go-microvm-runner")
 	}
 	if cfg.InitPath != "/usr/bin/waggle-init" {
 		t.Errorf("InitPath = %q, want %q", cfg.InitPath, "/usr/bin/waggle-init")

@@ -7,7 +7,7 @@ package runtimebin
 
 import _ "embed"
 
-//go:embed propolis-runner
+//go:embed go-microvm-runner
 var runner []byte
 
 //go:embed libkrun.so.1

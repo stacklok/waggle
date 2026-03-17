@@ -5,7 +5,7 @@
 
 package vm
 
-import "github.com/stacklok/propolis/preflight"
+import "github.com/stacklok/go-microvm/preflight"
 
 // extraPreflightChecks returns additional preflight checks for Linux hosts.
 // Currently this adds a user namespace availability check, which catches
