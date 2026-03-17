@@ -11,29 +11,29 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/stacklok/propolis"
-	"github.com/stacklok/propolis/extract"
-	"github.com/stacklok/propolis/hooks"
-	"github.com/stacklok/propolis/hypervisor/libkrun"
-	"github.com/stacklok/propolis/image"
-	propolisssh "github.com/stacklok/propolis/ssh"
+	"github.com/stacklok/go-microvm"
+	"github.com/stacklok/go-microvm/extract"
+	"github.com/stacklok/go-microvm/hooks"
+	"github.com/stacklok/go-microvm/hypervisor/libkrun"
+	"github.com/stacklok/go-microvm/image"
+	microvmssh "github.com/stacklok/go-microvm/ssh"
 
 	"github.com/stacklok/waggle/pkg/domain/environment"
 )
 
 // vmEntry holds the runtime state for a single VM.
 type vmEntry struct {
-	vm         *propolis.VM
+	vm         *microvm.VM
 	sshKeyPath string
 }
 
-// PropolisProvider implements Provider using propolis microVMs.
-type PropolisProvider struct {
+// MicroVMProvider implements Provider using go-microvm microVMs.
+type MicroVMProvider struct {
 	mu sync.RWMutex
 	// vms maps environment ID to the running VM entry.
 	vms map[string]*vmEntry
 
-	// runtimeSource optionally provides propolis-runner and libkrun via extraction.
+	// runtimeSource optionally provides go-microvm-runner and libkrun via extraction.
 	runtimeSource extract.Source
 
 	// firmwareSource optionally provides libkrunfw via extraction.
@@ -46,33 +46,33 @@ type PropolisProvider struct {
 	logLevel uint32
 }
 
-// ProviderOption configures a PropolisProvider.
-type ProviderOption func(*PropolisProvider)
+// ProviderOption configures a MicroVMProvider.
+type ProviderOption func(*MicroVMProvider)
 
-// WithRuntimeSource sets an extract.Source providing propolis-runner and libkrun.
+// WithRuntimeSource sets an extract.Source providing go-microvm-runner and libkrun.
 func WithRuntimeSource(src extract.Source) ProviderOption {
-	return func(p *PropolisProvider) { p.runtimeSource = src }
+	return func(p *MicroVMProvider) { p.runtimeSource = src }
 }
 
 // WithFirmwareSource sets an extract.Source providing libkrunfw.
 func WithFirmwareSource(src extract.Source) ProviderOption {
-	return func(p *PropolisProvider) { p.firmwareSource = src }
+	return func(p *MicroVMProvider) { p.firmwareSource = src }
 }
 
 // WithImageCache sets a shared OCI image cache for layer-level
 // caching and COW rootfs cloning.
 func WithImageCache(cache *image.Cache) ProviderOption {
-	return func(p *PropolisProvider) { p.imageCache = cache }
+	return func(p *MicroVMProvider) { p.imageCache = cache }
 }
 
 // WithLogLevel sets the libkrun log verbosity (0=off through 5=trace).
 func WithLogLevel(level uint32) ProviderOption {
-	return func(p *PropolisProvider) { p.logLevel = level }
+	return func(p *MicroVMProvider) { p.logLevel = level }
 }
 
-// NewPropolisProvider creates a new PropolisProvider.
-func NewPropolisProvider(opts ...ProviderOption) *PropolisProvider {
-	p := &PropolisProvider{
+// NewMicroVMProvider creates a new MicroVMProvider.
+func NewMicroVMProvider(opts ...ProviderOption) *MicroVMProvider {
+	p := &MicroVMProvider{
 		vms: make(map[string]*vmEntry),
 	}
 	for _, o := range opts {
@@ -82,7 +82,7 @@ func NewPropolisProvider(opts ...ProviderOption) *PropolisProvider {
 }
 
 // CreateVM provisions a new microVM for the given environment.
-func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Environment, opts CreateVMOpts) (*Handle, error) {
+func (p *MicroVMProvider) CreateVM(ctx context.Context, env *environment.Environment, opts CreateVMOpts) (*Handle, error) {
 	// Create per-environment data directory.
 	envDataDir := filepath.Join(opts.DataDir, "envs", env.ID)
 	if err := os.MkdirAll(envDataDir, 0o700); err != nil {
@@ -90,13 +90,13 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 	}
 
 	// Generate SSH keys for this environment.
-	privateKeyPath, publicKeyPath, err := propolisssh.GenerateKeyPair(envDataDir)
+	privateKeyPath, publicKeyPath, err := microvmssh.GenerateKeyPair(envDataDir)
 	if err != nil {
 		return nil, fmt.Errorf("generate SSH keys: %w", err)
 	}
 
 	// Read the public key content for injection into rootfs.
-	pubKeyContent, err := propolisssh.GetPublicKeyContent(publicKeyPath)
+	pubKeyContent, err := microvmssh.GetPublicKeyContent(publicKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("read SSH public key: %w", err)
 	}
@@ -108,7 +108,7 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 		"ssh_port", env.SSHPort,
 	)
 
-	rootfsHooks := []propolis.RootFSHook{
+	rootfsHooks := []microvm.RootFSHook{
 		hooks.InjectAuthorizedKeys(pubKeyContent, hooks.WithKeyUser("/home/sandbox", 1000, 1000)),
 	}
 	if opts.InitPath != "" {
@@ -121,47 +121,47 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 		rootfsHooks = append(rootfsHooks, InjectInitBinary())
 	}
 
-	// Build propolis options.
-	propolisOpts := []propolis.Option{
-		propolis.WithName("waggle-" + env.ID),
-		propolis.WithCPUs(opts.CPUs),
-		propolis.WithMemory(opts.MemoryMB),
-		propolis.WithPorts(propolis.PortForward{
+	// Build microvm options.
+	microvmOpts := []microvm.Option{
+		microvm.WithName("waggle-" + env.ID),
+		microvm.WithCPUs(opts.CPUs),
+		microvm.WithMemory(opts.MemoryMB),
+		microvm.WithPorts(microvm.PortForward{
 			Host:  env.SSHPort,
 			Guest: 22,
 		}),
-		propolis.WithDataDir(envDataDir),
+		microvm.WithDataDir(envDataDir),
 
 		// Inject SSH authorized_keys and waggle-init into the rootfs before boot.
-		propolis.WithRootFSHook(rootfsHooks...),
-		propolis.WithInitOverride("/waggle-init"),
+		microvm.WithRootFSHook(rootfsHooks...),
+		microvm.WithInitOverride("/waggle-init"),
 
 		// Wait for SSH to become ready after boot.
-		propolis.WithPostBoot(sshReadyWaiter(env.SSHPort, privateKeyPath)),
+		microvm.WithPostBoot(sshReadyWaiter(env.SSHPort, privateKeyPath)),
 	}
 
 	if p.imageCache != nil {
-		propolisOpts = append(propolisOpts,
-			propolis.WithImageCache(p.imageCache))
+		microvmOpts = append(microvmOpts,
+			microvm.WithImageCache(p.imageCache))
 	}
 	if p.logLevel > 0 {
-		propolisOpts = append(propolisOpts,
-			propolis.WithLogLevel(p.logLevel))
+		microvmOpts = append(microvmOpts,
+			microvm.WithLogLevel(p.logLevel))
 	}
 
 	if checks := extraPreflightChecks(); len(checks) > 0 {
-		propolisOpts = append(propolisOpts,
-			propolis.WithPreflightChecks(checks...))
+		microvmOpts = append(microvmOpts,
+			microvm.WithPreflightChecks(checks...))
 	}
 
-	propolisOpts = append(propolisOpts, propolis.WithBackend(
+	microvmOpts = append(microvmOpts, microvm.WithBackend(
 		libkrun.NewBackend(p.buildBackendOpts(opts)...),
 	))
 
 	// Start the VM.
-	vm, err := propolis.Run(ctx, opts.ImageRef, propolisOpts...)
+	vm, err := microvm.Run(ctx, opts.ImageRef, microvmOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("propolis.Run: %w", err)
+		return nil, fmt.Errorf("microvm.Run: %w", err)
 	}
 
 	// Store the VM handle.
@@ -184,7 +184,7 @@ func (p *PropolisProvider) CreateVM(ctx context.Context, env *environment.Enviro
 }
 
 // DestroyVM tears down the VM for the given environment.
-func (p *PropolisProvider) DestroyVM(ctx context.Context, envID string) error {
+func (p *MicroVMProvider) DestroyVM(ctx context.Context, envID string) error {
 	p.mu.Lock()
 	entry, ok := p.vms[envID]
 	if ok {
@@ -207,7 +207,7 @@ func (p *PropolisProvider) DestroyVM(ctx context.Context, envID string) error {
 }
 
 // IsRunning checks whether the VM for the given environment is alive.
-func (p *PropolisProvider) IsRunning(_ context.Context, envID string) bool {
+func (p *MicroVMProvider) IsRunning(_ context.Context, envID string) bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -216,7 +216,7 @@ func (p *PropolisProvider) IsRunning(_ context.Context, envID string) bool {
 }
 
 // SSHKeyPath returns the SSH private key path for the given environment.
-func (p *PropolisProvider) SSHKeyPath(envID string) string {
+func (p *MicroVMProvider) SSHKeyPath(envID string) string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -229,7 +229,7 @@ func (p *PropolisProvider) SSHKeyPath(envID string) string {
 
 // buildBackendOpts constructs libkrun backend options, merging provider-level
 // sources with per-call opts.
-func (p *PropolisProvider) buildBackendOpts(opts CreateVMOpts) []libkrun.Option {
+func (p *MicroVMProvider) buildBackendOpts(opts CreateVMOpts) []libkrun.Option {
 	runtimeSrc := opts.RuntimeSource
 	if runtimeSrc == nil {
 		runtimeSrc = p.runtimeSource
@@ -271,7 +271,7 @@ func (p *PropolisProvider) buildBackendOpts(opts CreateVMOpts) []libkrun.Option 
 // initInjector reads the waggle-init binary from disk and returns a
 // RootFSHook that injects it into the guest rootfs at /waggle-init.
 // The caller must ensure initPath is non-empty.
-func initInjector(initPath string) (propolis.RootFSHook, error) {
+func initInjector(initPath string) (microvm.RootFSHook, error) {
 	data, err := os.ReadFile(initPath) //nolint:gosec // initPath comes from server config, not user input
 	if err != nil {
 		return nil, fmt.Errorf("read init binary %s: %w", initPath, err)
@@ -281,9 +281,9 @@ func initInjector(initPath string) (propolis.RootFSHook, error) {
 
 // sshReadyWaiter returns a PostBootHook that waits for SSH to become
 // available on the given port.
-func sshReadyWaiter(port uint16, keyPath string) propolis.PostBootHook {
-	return func(ctx context.Context, _ *propolis.VM) error {
-		client := propolisssh.NewClient("127.0.0.1", port, "sandbox", keyPath)
+func sshReadyWaiter(port uint16, keyPath string) microvm.PostBootHook {
+	return func(ctx context.Context, _ *microvm.VM) error {
+		client := microvmssh.NewClient("127.0.0.1", port, "sandbox", keyPath)
 		return client.WaitForReady(ctx)
 	}
 }

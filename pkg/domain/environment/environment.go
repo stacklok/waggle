@@ -36,7 +36,7 @@ var validTransitions = map[Status][]Status{
 }
 
 // Environment is the aggregate root for an isolated code execution context.
-// Each environment corresponds to a single propolis microVM.
+// Each environment corresponds to a single go-microvm microVM.
 type Environment struct {
 	ID        string
 	Name      string

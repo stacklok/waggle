@@ -105,7 +105,7 @@ All file operations take `environment_id` and `path`. Files persist within the e
 
 ## Why MicroVMs
 
-Most code execution MCP servers use containers or V8 isolates. Waggle uses microVMs ([propolis](https://github.com/stacklok/propolis) + [libkrun](https://github.com/containers/libkrun)):
+Most code execution MCP servers use containers or V8 isolates. Waggle uses microVMs ([go-microvm](https://github.com/stacklok/go-microvm) + [libkrun](https://github.com/containers/libkrun)):
 
 | | Containers | V8 Isolates | Waggle (microVMs) |
 |---|---|---|---|
@@ -118,7 +118,7 @@ Most code execution MCP servers use containers or V8 isolates. Waggle uses micro
 
 The trade-off is startup time (seconds vs milliseconds), but you get a real Linux environment where `pip install numpy` and `apt-get install ffmpeg` just work.
 
-**Ecosystem**: [ToolHive](https://github.com/stacklok/toolhive) (platform) → [Propolis](https://github.com/stacklok/propolis) (VM substrate) → **Waggle** (MCP interface)
+**Ecosystem**: [ToolHive](https://github.com/stacklok/toolhive) (platform) → [go-microvm](https://github.com/stacklok/go-microvm) (VM substrate) → **Waggle** (MCP interface)
 
 ## Quick Start
 
@@ -126,7 +126,7 @@ The trade-off is startup time (seconds vs milliseconds), but you get a real Linu
 
 - [Go](https://go.dev/dl/) 1.26+
 - [Task](https://taskfile.dev/) (`go install github.com/go-task/task/v3/cmd/task@latest`)
-- [GitHub CLI](https://cli.github.com/) (`gh`) — used to download the propolis runtime
+- [GitHub CLI](https://cli.github.com/) (`gh`) — used to download the go-microvm runtime
 - KVM access on Linux (`/dev/kvm`) or Hypervisor.framework on macOS
 
 ### Build and Run
@@ -134,7 +134,7 @@ The trade-off is startup time (seconds vs milliseconds), but you get a real Linu
 ```bash
 git clone https://github.com/stacklok/waggle.git
 cd waggle
-task build    # Downloads propolis runtime + firmware, builds a self-contained binary
+task build    # Downloads go-microvm runtime + firmware, builds a self-contained binary
 task run      # Starts the MCP server
 ```
 
@@ -215,7 +215,7 @@ Runtime command selection order:
 2) Probed commands inside the VM (if available)
 3) Built-in fallbacks (`python3`, `pip install`, `node`, `npm install -g`, `sh`, `apk add --no-cache`)
 
-No SSH server is needed — `waggle-init` is injected into the VM at boot time by propolis and handles all communication.
+No SSH server is needed — `waggle-init` is injected into the VM at boot time by go-microvm and handles all communication.
 
 ## Development
 

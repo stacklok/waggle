@@ -5,9 +5,10 @@ coverage.out
 coverage.html
 .task/
 pkg/infra/vm/initbin/waggle-init
-pkg/infra/vm/runtimebin/propolis-runner
+pkg/infra/vm/runtimebin/go-microvm-runner
 pkg/infra/vm/runtimebin/libkrun.*
 pkg/infra/vm/runtimebin/libkrunfw.*
+pkg/infra/vm/runtimebin/sha256sums.txt
 pkg/infra/vm/runtimebin/VERSION
 pkg/infra/vm/runtimebin/LICENSE-GPL
 

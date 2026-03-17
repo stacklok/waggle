@@ -6,7 +6,7 @@ package vm
 import (
 	"context"
 
-	"github.com/stacklok/propolis/extract"
+	"github.com/stacklok/go-microvm/extract"
 
 	"github.com/stacklok/waggle/pkg/domain/environment"
 )
@@ -18,7 +18,7 @@ type CreateVMOpts struct {
 	ImageRef string
 	DataDir  string
 
-	// RunnerPath is an optional explicit path to propolis-runner.
+	// RunnerPath is an optional explicit path to go-microvm-runner.
 	RunnerPath string
 
 	// InitPath is an optional path to the waggle-init binary.
@@ -29,7 +29,7 @@ type CreateVMOpts struct {
 	// LibDir is an optional path to the libkrun library directory.
 	LibDir string
 
-	// RuntimeSource provides propolis-runner and libkrun via extraction.
+	// RuntimeSource provides go-microvm-runner and libkrun via extraction.
 	// Mutually exclusive with RunnerPath and LibDir.
 	RuntimeSource extract.Source
 

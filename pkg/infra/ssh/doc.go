@@ -3,5 +3,5 @@
 
 // Package ssh provides infrastructure adapters that implement domain
 // interfaces (Executor, FileSystem) using SSH connections to microVMs
-// via the propolis SSH client.
+// via the go-microvm SSH client.
 package ssh

@@ -9,7 +9,7 @@ require (
 	github.com/adrg/xdg v0.5.3
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.45.0
-	github.com/stacklok/propolis v0.0.20
+	github.com/stacklok/go-microvm v0.0.22
 )
 
 require (

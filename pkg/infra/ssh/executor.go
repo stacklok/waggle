@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	propolisssh "github.com/stacklok/propolis/ssh"
+	microvmssh "github.com/stacklok/go-microvm/ssh"
 
 	"github.com/stacklok/waggle/pkg/domain/execution"
 )
@@ -31,7 +31,7 @@ func NewExecutor() *Executor {
 func (e *Executor) ExecuteCode(
 	ctx context.Context, _ string, conn execution.ConnInfo, req *execution.CodeExecution,
 ) (*execution.ExecResult, error) {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
+	client := microvmssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 
 	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
 
@@ -40,13 +40,13 @@ func (e *Executor) ExecuteCode(
 
 	// Build the temp file path and shell-escape it for safe interpolation.
 	tempFile := fmt.Sprintf("/tmp/waggle_%s%s", uuid.New().String()[:12], req.FileExtension)
-	escapedTempFile := propolisssh.ShellEscape(tempFile)
+	escapedTempFile := microvmssh.ShellEscape(tempFile)
 
 	// Write code via base64 decode into the temp file, then execute and clean up.
 	// Using printf | base64 -d avoids heredoc quoting issues entirely.
 	command := fmt.Sprintf(
 		"printf '%%s' %s | base64 -d > %s; %s %s; __exit=$?; rm -f %s; exit $__exit",
-		propolisssh.ShellEscape(encoded),
+		microvmssh.ShellEscape(encoded),
 		escapedTempFile,
 		req.ExecCommand,
 		escapedTempFile,
@@ -61,7 +61,7 @@ func (e *Executor) ExecuteCode(
 func (e *Executor) InstallPackages(
 	ctx context.Context, _ string, conn execution.ConnInfo, req *execution.PackageInstallation,
 ) (*execution.ExecResult, error) {
-	client := propolisssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
+	client := microvmssh.NewClient(conn.Host, conn.Port, "sandbox", conn.KeyPath)
 	command := buildInstallCommand(req.InstallCommand, req.Packages)
 	return e.run(ctx, client, command, 0)
 }
@@ -71,7 +71,7 @@ func (e *Executor) InstallPackages(
 func buildInstallCommand(installCmd string, packages []string) string {
 	escapedPkgs := make([]string, len(packages))
 	for i, pkg := range packages {
-		escapedPkgs[i] = propolisssh.ShellEscape(pkg)
+		escapedPkgs[i] = microvmssh.ShellEscape(pkg)
 	}
 	return fmt.Sprintf("%s %s", installCmd, strings.Join(escapedPkgs, " "))
 }
@@ -79,7 +79,7 @@ func buildInstallCommand(installCmd string, packages []string) string {
 // run executes a command via SSH and returns the result.
 // If timeout is 0, no timeout is applied beyond the context deadline.
 func (*Executor) run(
-	ctx context.Context, client *propolisssh.Client, command string, timeout time.Duration,
+	ctx context.Context, client *microvmssh.Client, command string, timeout time.Duration,
 ) (*execution.ExecResult, error) {
 	execCtx := ctx
 	if timeout > 0 {
