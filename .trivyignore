@@ -1,0 +1,4 @@
+# DS-0002: "Specify at least 1 USER command in Dockerfile with non-root user"
+# Our Dockerfiles in images/ are microVM rootfs images, not traditional containers.
+# Isolation comes from the VM boundary (libkrun), not Linux user namespaces.
+DS-0002
